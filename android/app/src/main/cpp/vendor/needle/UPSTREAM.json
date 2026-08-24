@@ -1,0 +1,8 @@
+{
+  "repository": "Cactus-Compute/needle2",
+  "revision": "98fbd955b0347e78059be0c253cc1ffa09b87bc7",
+  "platform": "android-arm64",
+  "engineAbi": "needle2-hf-98fbd955b0347e78059be0c253cc1ffa09b87bc7-android-arm64",
+  "libneedleSha256": "a1333d28c57a35d33b4a0fb688706573dac56d851dea467771480f745f59f9f6",
+  "headerSha256": "cb7a720eba7bc895b5bbfa5d6f6fc635906938fdc569eb2520a2c09ba06d9eed"
+}

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "defaultProfile": "quick",
+  "fullProfile": "full",
+  "profiles": {
+    "quick": {
+      "paths": ["src/**", "package.json", "vite.config.ts", "vitest.config.ts"],
+      "commands": [
+        {"id": "web-tests", "argv": ["npm", "test", "--", "--maxWorkers=1"], "timeout_ms": 120000, "provides": ["tests"]},
+        {"id": "web-typecheck", "argv": ["npm", "run", "typecheck"], "timeout_ms": 120000, "provides": ["types"]}
+      ]
+    },
+    "full": {
+      "commands": [
+        {"id": "release-check", "argv": ["npm", "run", "verify"], "timeout_ms": 900000, "provides": ["build", "tests", "types", "lint", "security"]}
+      ]
+    }
+  }
+}

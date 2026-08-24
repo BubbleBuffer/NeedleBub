@@ -1,0 +1,17 @@
+{
+  "formatVersion": 1,
+  "authority": "https://github.com/BubbleBuffer/NeedleBub",
+  "entries": [
+    {
+      "id": "de.x0bubbuff.needlebub.otp",
+      "version": "1.0.0-alpha.1",
+      "name": "OTP Extractor",
+      "description": "Extracts one-time authentication codes and their visible source from notification text.",
+      "verified": true,
+      "url": "https://github.com/BubbleBuffer/NeedleBub/releases/download/otp-v1.0.0-alpha.1/de.x0bubbuff.needlebub.otp-1.0.0-alpha.1.nbpack",
+      "size": 21811739,
+      "sha256": "2232ab90e75da87c31c6fcb04518350fb281762c5fc09de9070037473df7d378",
+      "engineAbi": "needle2-hf-98fbd955b0347e78059be0c253cc1ffa09b87bc7-android-arm64"
+    }
+  ]
+}

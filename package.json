@@ -1,0 +1,50 @@
+{
+  "name": "needlebub",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build:web",
+    "build:web": "tsc -b && vite build --mode production",
+    "build:android-ui": "tsc -b && vite build --mode android",
+    "android:sync": "cap sync android",
+    "android:prepare": "npm run build:android-ui && npm run android:sync",
+    "android:build": "npm run android:prepare && cd android && gradlew.bat assembleRelease",
+    "pack:otp": "node scripts/build-otp-pack.mjs",
+    "test": "vitest run",
+    "test:android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/android-test.ps1",
+    "verify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify.ps1",
+    "test:watch": "vitest",
+    "typecheck": "tsc -b",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/app": "^8.0.1",
+    "@capacitor/core": "^8.4.2",
+    "@fontsource-variable/atkinson-hyperlegible-next": "^5.3.0",
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource/fragment-mono": "^5.3.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.2",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/archiver": "^8.0.0",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.1.0",
+    "archiver": "^8.0.0",
+    "jsdom": "^28.1.0",
+    "oxlint": "^1.79.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.0"
+  }
+}

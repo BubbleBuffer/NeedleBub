@@ -1,0 +1,17 @@
+{
+  "formatVersion": 1,
+  "tools": [
+    {
+      "name": "extract_otp",
+      "description": "Extract a one-time authentication code and its source from an SMS message.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "code": {"type": "string", "pattern": "^[A-Za-z0-9]{4,8}$"},
+          "source": {"type": "string", "minLength": 1, "maxLength": 80}
+        },
+        "required": ["code"]
+      }
+    }
+  ]
+}

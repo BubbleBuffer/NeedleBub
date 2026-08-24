@@ -1,0 +1,13 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NeedleBub</string>
+    <string name="title_activity_main">NeedleBub</string>
+    <string name="package_name">de.x0bubbuff.needlebub</string>
+    <string name="custom_url_scheme">de.x0bubbuff.needlebub</string>
+    <string name="otp_channel_name">Private OTP results</string>
+    <string name="otp_channel_description">Short-lived OTP results extracted locally by NeedleBub.</string>
+    <string name="otp_ready_title">Code ready</string>
+    <string name="unlock_to_copy">Unlock to view and copy</string>
+    <string name="otp_from_source">Code from %1$s</string>
+    <string name="copy_code">Copy securely</string>
+</resources>
