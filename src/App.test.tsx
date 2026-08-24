@@ -1,29 +1,165 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
 
-describe('NeedleBub shell', () => {
-  it('exposes the six private-alpha surfaces', () => {
+const mockNeedleBub = vi.hoisted(() => ({
+  status: vi.fn(),
+  requestNotificationPermission: vi.fn(),
+  openNotificationAccess: vi.fn(),
+  openNotificationSettings: vi.fn(),
+  openMacroDroid: vi.fn(),
+  setAutomaticOtpEnabled: vi.fn(),
+  runColdModelCheck: vi.fn(),
+  listPacks: vi.fn(),
+  removePack: vi.fn(),
+  pickPack: vi.fn(),
+  catalogue: vi.fn(),
+  installCataloguePack: vi.fn(),
+  listNotificationApps: vi.fn(),
+  saveNotificationApps: vi.fn(),
+  diagnostics: vi.fn(),
+}))
+
+vi.mock('./native', () => ({ needleBub: mockNeedleBub }))
+
+const activeStatus = {
+  otpPackInstalled: true,
+  notificationAccess: true,
+  notificationPermission: true,
+  allApps: true,
+  selectedAppCount: 0,
+  automaticOtpConfigured: true,
+  automaticOtpEnabled: true,
+  macroDroidInstalled: true,
+}
+
+const otpPack = {
+  id: 'de.x0bubbuff.needlebub.otp',
+  version: '1.0.0-alpha.1',
+  name: 'OTP Extractor',
+  author: 'BubbleBuffer',
+  description: 'Extracts one-time authentication codes.',
+  license: 'Apache-2.0',
+  verified: true,
+  surfaces: ['notification'],
+  outputs: ['nb_code', 'nb_source'],
+}
+
+beforeEach(() => {
+  window.location.hash = ''
+  for (const value of Object.values(mockNeedleBub)) value.mockReset()
+  mockNeedleBub.status.mockResolvedValue(activeStatus)
+  mockNeedleBub.listPacks.mockResolvedValue({ packs: [otpPack] })
+  mockNeedleBub.catalogue.mockResolvedValue({ entries: [] })
+  mockNeedleBub.listNotificationApps.mockResolvedValue({ apps: [] })
+  mockNeedleBub.diagnostics.mockResolvedValue({ platform: 'test' })
+  mockNeedleBub.setAutomaticOtpEnabled.mockResolvedValue(undefined)
+  mockNeedleBub.saveNotificationApps.mockResolvedValue(undefined)
+  mockNeedleBub.removePack.mockResolvedValue({ removed: true })
+})
+
+describe('NeedleBub compact utility shell', () => {
+  it('shows one compact operational home without showcase navigation', async () => {
     render(<App />)
-    for (const label of ['Start', 'Status', 'Packs', 'Sources', 'Connect', 'Settings']) {
-      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
-    }
+
+    expect(await screen.findByRole('heading', { name: 'Automatic OTP' })).toBeInTheDocument()
+    expect(screen.getByText('Listening to all notification apps')).toBeInTheDocument()
+    expect(screen.getByText('All apps → OTP Extractor → private notification')).toBeInTheDocument()
+    expect(screen.queryByText('Tiny models.')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Status' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Connect' })).not.toBeInTheDocument()
   })
 
-  it('uses the source pack result routing seam', () => {
+  it('offers only the next missing setup action', async () => {
+    mockNeedleBub.status.mockResolvedValue({
+      ...activeStatus,
+      notificationPermission: false,
+      automaticOtpConfigured: false,
+    })
     render(<App />)
-    expect(screen.getByText('Source')).toBeInTheDocument()
-    expect(screen.getByText('Pack')).toBeInTheDocument()
-    expect(screen.getByText('Result')).toBeInTheDocument()
+
+    expect(await screen.findByRole('heading', { name: 'Set up automatic OTP' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Allow notifications' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Install OTP pack' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Choose sources' })).not.toBeInTheDocument()
   })
 
-  it('keeps operational failures direct and recoverable', async () => {
+  it('pauses automatic OTP without changing setup', async () => {
+    const user = userEvent.setup()
+    mockNeedleBub.status
+      .mockResolvedValueOnce(activeStatus)
+      .mockResolvedValue({ ...activeStatus, automaticOtpEnabled: false })
+    render(<App />)
+
+    const toggle = await screen.findByRole('switch', { name: 'Automatic OTP' })
+    await user.click(toggle)
+
+    await waitFor(() => expect(mockNeedleBub.setAutomaticOtpEnabled).toHaveBeenCalledWith({ enabled: false }))
+    expect(await screen.findByText('Paused')).toBeInTheDocument()
+  })
+
+  it('uses hash routes for drill-ins and Android-compatible back navigation', async () => {
     const user = userEvent.setup()
     render(<App />)
-    await user.click(screen.getByRole('button', { name: 'Packs' }))
-    expect(screen.getByRole('button', { name: 'Import .nbpack' })).toBeInTheDocument()
-    expect(screen.queryByText(/result history/i)).not.toBeInTheDocument()
+
+    await user.click(await screen.findByRole('button', { name: /Sources/ }))
+    expect(window.location.hash).toBe('#/sources')
+    expect(await screen.findByRole('heading', { name: 'Sources' })).toBeInTheDocument()
+
+    window.history.back()
+    await waitFor(() => expect(window.location.hash).toBe(''))
+    expect(await screen.findByRole('heading', { name: 'Automatic OTP' })).toBeInTheDocument()
+  })
+
+  it('shows only sanitized output from the cold model check', async () => {
+    window.location.hash = '#/advanced'
+    mockNeedleBub.runColdModelCheck.mockResolvedValue({
+      passed: true,
+      errorCode: null,
+      durationMs: 716,
+      coldLoad: true,
+      pssKb: 60_058,
+      code: '739241',
+      resultJson: '{"code":"739241"}',
+    })
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: 'Run cold model check' }))
+    expect(await screen.findByText('Passed · cold load · 716 ms · 59 MiB')).toBeInTheDocument()
+    expect(screen.queryByText('739241')).not.toBeInTheDocument()
+    expect(screen.queryByText(/resultJson/)).not.toBeInTheDocument()
+  })
+
+  it('autosaves source changes and restores the previous choice on failure', async () => {
+    window.location.hash = '#/sources'
+    mockNeedleBub.listNotificationApps.mockResolvedValue({ apps: [{ packageName: 'de.bank', label: 'Needle Bank', selected: true }] })
+    mockNeedleBub.saveNotificationApps.mockRejectedValue(new Error('storage unavailable'))
+    const user = userEvent.setup()
+    render(<App />)
+
+    const toggle = await screen.findByRole('switch', { name: 'All notification apps' })
+    expect(toggle).toBeChecked()
+    await user.click(toggle)
+
+    await waitFor(() => expect(mockNeedleBub.saveNotificationApps).toHaveBeenCalledWith({ allApps: false, packages: ['de.bank'] }))
+    expect(await screen.findByText('Could not save that source change. Your previous selection is still active.')).toBeInTheDocument()
+    expect(toggle).toBeChecked()
+  })
+
+  it('names the automation consequence before removing the official pack', async () => {
+    window.location.hash = '#/packs'
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const user = userEvent.setup()
+    render(<App />)
+
+    await user.click(await screen.findByText('OTP Extractor'))
+    await user.click(screen.getByRole('button', { name: 'Remove OTP Extractor' }))
+
+    expect(confirm).toHaveBeenCalledWith('Remove OTP Extractor 1.0.0-alpha.1? Automatic OTP will stop until it is reinstalled.')
+    expect(mockNeedleBub.removePack).toHaveBeenCalledWith({ id: 'de.x0bubbuff.needlebub.otp', version: '1.0.0-alpha.1' })
+    confirm.mockRestore()
   })
 })

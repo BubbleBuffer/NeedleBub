@@ -66,6 +66,7 @@ class IsolatedInferenceService : Service() {
         var errorCode: String? = ErrorCodes.RUNTIME_CRASH
         var toolName: String? = null
         var resultJson: String? = null
+        var coldLoad = request.forceReload
         try {
             if (request.input.toByteArray(Charsets.UTF_8).size > MAX_INPUT_BYTES) {
                 errorCode = ErrorCodes.INPUT_TOO_LARGE
@@ -73,10 +74,15 @@ class IsolatedInferenceService : Service() {
                 errorCode = ErrorCodes.TIMEOUT
             } else {
                 val packKey = "${request.packId}@${request.packVersion}"
+                coldLoad = request.forceReload || loadedPack != packKey
+                if (request.forceReload && loadedPack != null) {
+                    NeedleNative.reset()
+                    loadedPack = null
+                }
                 if (loadedPack != packKey) {
                     if (NeedleNative.load(model.fd, request.modelSize) != 0) {
                         errorCode = ErrorCodes.PACK_INVALID
-                        respond(callback, request, status, toolName, resultJson, errorCode, started)
+                        respond(callback, request, status, toolName, resultJson, errorCode, started, coldLoad)
                         activeRequestId = null
                         return
                     }
@@ -84,7 +90,7 @@ class IsolatedInferenceService : Service() {
                     if (NeedleNative.initialize("", tools) < 0) {
                         NeedleNative.reset()
                         errorCode = ErrorCodes.PACK_INVALID
-                        respond(callback, request, status, toolName, resultJson, errorCode, started)
+                        respond(callback, request, status, toolName, resultJson, errorCode, started, coldLoad)
                         activeRequestId = null
                         return
                     }
@@ -115,7 +121,7 @@ class IsolatedInferenceService : Service() {
             errorCode = ErrorCodes.RUNTIME_CRASH
         }
         if (!cancelled.remove(request.requestId)) {
-            respond(callback, request, status, toolName, resultJson, errorCode, started)
+            respond(callback, request, status, toolName, resultJson, errorCode, started, coldLoad)
         }
         activeRequestId = null
     }
@@ -128,11 +134,13 @@ class IsolatedInferenceService : Service() {
         resultJson: String?,
         errorCode: String?,
         started: Long,
+        coldLoad: Boolean,
     ) {
         val duration = SystemClock.elapsedRealtime() - started
-        Log.i(TAG, "pack=${request.packId}@${request.packVersion} status=$status error=${errorCode ?: "none"} durationMs=$duration pssKb=${Debug.getPss()}")
+        val pssKb = Debug.getPss().toLong()
+        Log.i(TAG, "pack=${request.packId}@${request.packVersion} surface=${request.surface} load=${if (coldLoad) "cold" else "warm"} status=$status error=${errorCode ?: "none"} durationMs=$duration pssKb=$pssKb")
         try {
-            callback.onResult(RuntimeResponse(request.requestId, status, toolName, resultJson, errorCode, duration))
+            callback.onResult(RuntimeResponse(request.requestId, status, toolName, resultJson, errorCode, duration, coldLoad, pssKb))
         } catch (_: Exception) {
             // The caller may have died; never log request or result content.
         }

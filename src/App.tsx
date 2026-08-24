@@ -1,101 +1,315 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import './App.css'
-import { needleBub, type AppStatus, type CatalogueEntry, type DiagnosticInfo, type NotificationApp, type PackInfo } from './native'
+import {
+  needleBub,
+  type AppStatus,
+  type CatalogueEntry,
+  type ColdModelCheck,
+  type DiagnosticInfo,
+  type NotificationApp,
+  type PackInfo,
+} from './native'
 
-type Surface = 'start' | 'status' | 'packs' | 'sources' | 'connect' | 'settings'
+type Route = 'home' | 'sources' | 'packs' | 'advanced'
+type IconName = 'apps' | 'arrow' | 'back' | 'check' | 'info' | 'package' | 'settings'
 
-const surfaces: Array<{ id: Surface; label: string }> = [
-  { id: 'start', label: 'Start' }, { id: 'status', label: 'Status' }, { id: 'packs', label: 'Packs' },
-  { id: 'sources', label: 'Sources' }, { id: 'connect', label: 'Connect' }, { id: 'settings', label: 'Settings' },
-]
+const emptyStatus: AppStatus = {
+  otpPackInstalled: false,
+  notificationAccess: false,
+  notificationPermission: false,
+  allApps: false,
+  selectedAppCount: 0,
+  automaticOtpConfigured: false,
+  automaticOtpEnabled: true,
+  macroDroidInstalled: false,
+}
 
-const emptyStatus: AppStatus = { otpPackInstalled: false, notificationAccess: false, notificationPermission: false, allApps: false, selectedAppCount: 0, automaticOtpReady: false, macroDroidInstalled: false }
+function routeFromHash(): Route {
+  const value = window.location.hash.replace(/^#\/?/, '')
+  return value === 'sources' || value === 'packs' || value === 'advanced' ? value : 'home'
+}
 
-export function KittyMark({ large = false }: { large?: boolean }) {
-  return <svg className={large ? 'kitty-mark kitty-mark--large' : 'kitty-mark'} viewBox="0 0 48 48" aria-hidden="true">
+function navigate(route: Route) {
+  window.location.hash = route === 'home' ? '' : `#/${route}`
+}
+
+function KittyMark() {
+  return <svg className="kitty-mark" viewBox="0 0 48 48" aria-hidden="true">
     <path d="M8 35V17l9-9 7 8 7-8 9 9v18l-6 6H14l-6-6Z" className="kitty-contour" />
-    <path d="M31 8l5 5" className="kitty-thread" /><path d="M17 28h2M29 28h2" className="kitty-face" />
+    <path d="M31 8l5 5" className="kitty-thread" />
+    <path d="M17 28h2M29 28h2" className="kitty-face" />
   </svg>
 }
 
-function RoutingSeam() {
-  return <div className="routing-seam" aria-label="Source to pack to result">
-    <span><small>01</small><strong>Source</strong></span><i aria-hidden="true" />
-    <span><small>02</small><strong>Pack</strong></span><i aria-hidden="true" />
-    <span><small>03</small><strong>Result</strong></span>
-  </div>
+function Icon({ name }: { name: IconName }) {
+  const paths: Record<IconName, React.ReactNode> = {
+    apps: <><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></>,
+    arrow: <path d="m9 6 6 6-6 6" />,
+    back: <path d="m15 5-7 7 7 7M8 12h11" />,
+    check: <path d="m5 12 4 4L19 6" />,
+    info: <><path d="M12 8v.01M12 11v6" /><circle cx="12" cy="12" r="9" /></>,
+    package: <><path d="m4 7 8-4 8 4-8 4-8-4ZM4 7v10l8 4 8-4V7M12 11v10" /></>,
+    settings: <><circle cx="12" cy="12" r="3" /><path d="M19 13.5v-3l-2-.6-.8-1.8 1-1.9-2.1-2.1-1.9 1-1.8-.8-.6-2h-3l-.6 2-1.8.8-1.9-1-2.1 2.1 1 1.9-.8 1.8-2 .6v3l2 .6.8 1.8-1 1.9 2.1 2.1 1.9-1 1.8.8.6 2h3l.6-2 1.8-.8 1.9 1 2.1-2.1-1-1.9.8-1.8 2-.6Z" /></>,
+  }
+  return <svg className="line-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>
 }
 
-function StateRow({ ready, label, detail, action }: { ready: boolean; label: string; detail: string; action?: React.ReactNode }) {
-  return <div className="state-row"><span className={`state-pin ${ready ? 'state-pin--ready' : ''}`} aria-hidden="true" /><div><strong>{label}</strong><p>{detail}</p></div><span className="state-word">{ready ? 'Ready' : 'Needed'}</span>{action}</div>
+function AppBar({ route }: { route: Route }) {
+  if (route === 'home') return <header className="app-bar">
+    <button className="brand" onClick={() => navigate('home')} aria-label="NeedleBub home"><KittyMark /><span>NeedleBub</span></button>
+    <button className="icon-button" onClick={() => navigate('advanced')} aria-label="Settings"><Icon name="settings" /></button>
+  </header>
+
+  const labels: Record<Exclude<Route, 'home'>, string> = { sources: 'Sources', packs: 'Packs', advanced: 'Advanced' }
+  return <header className="app-bar app-bar--detail">
+    <button className="icon-button" onClick={() => window.history.back()} aria-label="Back"><Icon name="back" /></button>
+    <span>{labels[route]}</span>
+  </header>
+}
+
+function Toggle({ checked, label, disabled, onChange }: { checked: boolean; label: string; disabled?: boolean; onChange: (checked: boolean) => void }) {
+  return <label className="toggle">
+    <input role="switch" type="checkbox" aria-label={label} checked={checked} disabled={disabled} onChange={(event) => onChange(event.target.checked)} />
+    <span aria-hidden="true" />
+  </label>
+}
+
+function UtilityRow({ icon, label, value, onClick }: { icon: IconName; label: string; value: string; onClick: () => void }) {
+  return <button className="utility-row" onClick={onClick} aria-label={`${label}, ${value}`}>
+    <Icon name={icon} />
+    <span><strong>{label}</strong><small>{value}</small></span>
+    <Icon name="arrow" />
+  </button>
+}
+
+function RequirementRow({ complete, label }: { complete: boolean; label: string }) {
+  return <li className={complete ? 'requirement requirement--complete' : 'requirement'}>
+    <span className="requirement-mark" aria-hidden="true">{complete ? <Icon name="check" /> : null}</span>
+    <span>{label}</span>
+    <small>{complete ? 'Ready' : 'Needed'}</small>
+  </li>
 }
 
 export default function App() {
-  const [surface, setSurface] = useState<Surface>('start')
+  const [route, setRoute] = useState<Route>(routeFromHash)
   const [status, setStatus] = useState<AppStatus>(emptyStatus)
   const [packs, setPacks] = useState<PackInfo[]>([])
   const [catalogue, setCatalogue] = useState<CatalogueEntry[]>([])
   const [apps, setApps] = useState<NotificationApp[]>([])
   const [diagnostics, setDiagnostics] = useState<DiagnosticInfo | null>(null)
+  const [loaded, setLoaded] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
-  const [theme, setTheme] = useState(localStorage.getItem('needlebub-theme') ?? 'system')
+  const [coldCheck, setColdCheck] = useState<ColdModelCheck | null>(null)
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const [nextStatus, nextPacks] = await Promise.all([needleBub.status(), needleBub.listPacks()])
-    setStatus(nextStatus); setPacks(nextPacks.packs)
-  }
+    setStatus(nextStatus)
+    setPacks(nextPacks.packs)
+  }, [])
 
   useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- initial state comes from the native bridge.
-    void refresh(); void needleBub.catalogue().then((value) => setCatalogue(value.entries))
+    void Promise.all([
+      // oxlint-disable-next-line react/set-state-in-effect -- initial state is supplied by the native bridge.
+      refresh(),
+      needleBub.catalogue().then((value) => setCatalogue(value.entries)).catch(() => setCatalogue([])),
+    ]).finally(() => setLoaded(true))
+    const onHashChange = () => setRoute(routeFromHash())
     const onVisible = () => { if (document.visibilityState === 'visible') void refresh() }
+    window.addEventListener('hashchange', onHashChange)
     document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
-  }, [])
-  useEffect(() => { document.documentElement.dataset.theme = theme; localStorage.setItem('needlebub-theme', theme) }, [theme])
+    return () => {
+      window.removeEventListener('hashchange', onHashChange)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [refresh])
+
   useEffect(() => {
-    if (surface === 'sources' && apps.length === 0) void needleBub.listNotificationApps().then((value) => setApps(value.apps))
-    if (surface === 'settings' && !diagnostics) void needleBub.diagnostics().then(setDiagnostics)
-  }, [surface, apps.length, diagnostics])
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+    if (route === 'sources') void needleBub.listNotificationApps().then((value) => setApps(value.apps))
+    if (route === 'advanced') void needleBub.diagnostics().then(setDiagnostics)
+  }, [route])
+
+  const run = async (key: string, work: () => Promise<unknown>, success?: string) => {
+    setBusy(key)
+    setNotice(null)
+    try {
+      await work()
+      await refresh()
+      if (success) setNotice(success)
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'That did not complete. Your existing setup is unchanged.')
+    } finally {
+      setBusy(null)
+    }
+  }
 
   const officialEntry = catalogue.find((entry) => entry.id === 'de.x0bubbuff.needlebub.otp')
-  const sourceLabel = status.allApps ? 'All notification apps' : status.selectedAppCount ? `${status.selectedAppCount} selected apps` : 'No apps selected'
-  const run = async (key: string, work: () => Promise<unknown>, success: string) => {
-    setBusy(key); setNotice(null)
-    try { await work(); await refresh(); setNotice(success) }
-    catch (error) { setNotice(error instanceof Error ? error.message : 'That did not complete. Your existing setup is unchanged.') }
-    finally { setBusy(null) }
-  }
+  const officialPack = packs.find((pack) => pack.id === 'de.x0bubbuff.needlebub.otp')
 
-  const content = useMemo(() => {
-    if (surface === 'start') return <section className="view start-view" aria-labelledby="start-title">
-      <div className="hero-copy"><p className="kicker">Local capability host</p><h1 id="start-title">Tiny models.<br />Quietly useful.</h1><p>NeedleBub reads only the notifications you select, routes them through a local Needle pack, and forgets the text when the job is done.</p>
-        <div className="hero-actions">{!status.otpPackInstalled && officialEntry ? <button className="primary" disabled={busy !== null} onClick={() => void run('otp', () => needleBub.installCataloguePack({ id: officialEntry.id }), 'OTP Extractor installed.')}>{busy === 'otp' ? 'Installing…' : 'Install OTP pack'}</button> : !status.otpPackInstalled ? <button className="primary" disabled={busy !== null} onClick={() => void run('import', () => needleBub.pickPack(), 'Pack imported. Local imports remain external-only.')}>{busy === 'import' ? 'Opening…' : 'Choose OTP .nbpack'}</button> : <button className="primary" onClick={() => setSurface('status')}>Finish setup</button>}<button className="secondary" onClick={() => setSurface('packs')}>View packs</button></div>
-      </div><div className="hero-character" aria-hidden="true"><KittyMark large /><span className="thread-tail" /></div><RoutingSeam /><p className="privacy-line">No notification body, OTP, or inference result is stored or transmitted.</p>
-    </section>
+  let content: React.ReactNode
+  if (!loaded) content = <main className="screen"><p className="loading-line">Reading local setup…</p></main>
+  else if (route === 'sources') content = <SourcesView apps={apps} status={status} onAppsChange={setApps} onRefresh={refresh} />
+  else if (route === 'packs') content = <PacksView packs={packs} officialEntry={officialEntry} busy={busy} notice={notice} run={run} />
+  else if (route === 'advanced') content = <AdvancedView
+    status={status}
+    diagnostics={diagnostics}
+    coldCheck={coldCheck}
+    busy={busy}
+    onRunColdCheck={() => void run('cold-check', async () => setColdCheck(await needleBub.runColdModelCheck()))}
+  />
+  else content = <HomeView
+    status={status}
+    officialEntry={officialEntry}
+    officialPack={officialPack}
+    busy={busy}
+    notice={notice}
+    onRefresh={refresh}
+    onRun={run}
+    onStatusChange={setStatus}
+  />
 
-    if (surface === 'status') return <section className="view" aria-labelledby="status-title"><header className="view-heading"><div><p className="kicker">Runtime</p><h1 id="status-title">Automatic OTP</h1></div><span className={`readiness ${status.automaticOtpReady ? 'readiness--ready' : ''}`}>{status.automaticOtpReady ? 'Listening' : 'Setup needed'}</span></header><RoutingSeam />
-      <div className="state-field"><StateRow ready={status.otpPackInstalled} label="Official OTP pack" detail={status.otpPackInstalled ? 'Verified pack is available to the notification route.' : 'Install the verified OTP pack explicitly.'} action={<button className="text-action" onClick={() => setSurface('packs')}>Open packs</button>} /><StateRow ready={status.notificationAccess} label="Notification access" detail={status.notificationAccess ? 'NeedleBub can receive selected notification updates.' : 'Android must allow the notification listener.'} action={<button className="text-action" onClick={() => void needleBub.openNotificationAccess()}>Open access</button>} /><StateRow ready={status.notificationPermission} label="Private result notification" detail={status.notificationPermission ? 'Short-lived results may be shown privately.' : 'Allow NeedleBub to post the accepted result.'} action={<button className="text-action" onClick={() => void needleBub.requestNotificationPermission().then(refresh)}>Allow</button>} /><StateRow ready={status.allApps || status.selectedAppCount > 0} label="Notification sources" detail={sourceLabel} action={<button className="text-action" onClick={() => setSurface('sources')}>Choose apps</button>} /></div>
-      <aside className="recovery-note"><span aria-hidden="true" />Your choices and installed packs remain intact if Android stops the isolated runtime. NeedleBub reconnects for the next request.</aside>
-    </section>
-
-    if (surface === 'packs') return <section className="view" aria-labelledby="packs-title"><header className="view-heading"><div><p className="kicker">Capability catalogue</p><h1 id="packs-title">Packs</h1></div><button className="primary compact" disabled={busy !== null} onClick={() => void run('import', () => needleBub.pickPack(), 'Pack imported. Local imports are unverified and external-only.')}>Import .nbpack</button></header>{notice && <p className="notice" role="status">{notice}</p>}
-      {packs.length === 0 ? <div className="empty-state"><KittyMark /><h2>No packs fitted yet</h2><p>Install the official OTP pack or inspect any local <code>.nbpack</code> through the same sandbox.</p></div> : <div className="pack-list">{packs.map((pack) => <article className="pack-row" key={`${pack.id}@${pack.version}`}><div><div className="pack-title"><h2>{pack.name}</h2><span className={pack.verified ? 'verified' : 'unverified'}>{pack.verified ? 'Verified catalogue' : 'Unverified import'}</span></div><p>{pack.description}</p><code>{pack.id}@{pack.version}</code></div><div className="pack-actions"><span>{pack.outputs.join(' · ')}</span><button className="danger-text" onClick={() => { if (window.confirm(`Remove ${pack.name} ${pack.version}?`)) void run(`remove-${pack.id}`, () => needleBub.removePack({ id: pack.id, version: pack.version }), 'Pack removed.') }}>Remove</button></div></article>)}</div>}
-      {!status.otpPackInstalled && officialEntry && <div className="catalogue-row"><div><strong>OTP Extractor</strong><p>Official notification capability · explicit {Math.round(officialEntry.size / 1_000_000)} MB download</p></div><button className="primary compact" disabled={busy !== null} onClick={() => void run('otp', () => needleBub.installCataloguePack({ id: officialEntry.id }), 'OTP Extractor installed.')}>Install</button></div>}
-    </section>
-
-    if (surface === 'sources') return <SourcesView apps={apps} status={status} onChange={setApps} onSaved={async (allApps, packages) => { await needleBub.saveNotificationApps({ allApps, packages }); await refresh(); setNotice('Notification choices saved.') }} notice={notice} />
-    if (surface === 'connect') return <section className="view" aria-labelledby="connect-title"><header className="view-heading"><div><p className="kicker">Automation</p><h1 id="connect-title">Connect</h1></div></header><div className="connected-fields"><article><span className="field-number">01</span><h2>MacroDroid</h2><p>Add Applications → Tasker/Locale Plugin → NeedleBub inference. Choose an external pack, insert Magic Text, then bind the declared outputs.</p><code>nb_code · nb_source · nb_error_code</code><p className="status-copy">{status.macroDroidInstalled ? 'MacroDroid is installed. Output interoperability still needs a live macro run.' : 'MacroDroid was not detected on this device.'}</p></article><article><span className="field-number">02</span><h2>Android gateway</h2><p>Bind explicitly to the exported asynchronous service. Callers provide their own text; notification content and NeedleBub settings are never exposed.</p><code>de.x0bubbuff.needlebub.action.INFERENCE_GATEWAY</code><p className="status-copy">One in flight per UID · burst 3 · 10/minute</p></article></div></section>
-    return <section className="view" aria-labelledby="settings-title"><header className="view-heading"><div><p className="kicker">About this build</p><h1 id="settings-title">Settings</h1></div></header><div className="settings-field"><label htmlFor="theme">Appearance</label><select id="theme" value={theme} onChange={(event) => setTheme(event.target.value)}><option value="system">Follow system</option><option value="light">Warm light</option><option value="dark">Warm dark</option></select><div><strong>Memory-only inference</strong><p>Input, output, extracted codes, and result JSON are never persisted. Diagnostics contain only pack identity, status, durations, and memory measurements.</p></div><div><strong>Licenses</strong><p>NeedleBub is MIT licensed. Needle and the Locale protocol notices are Apache-2.0.</p></div></div><details className="diagnostics"><summary>Diagnostics</summary>{diagnostics ? <dl>{Object.entries(diagnostics).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{String(value ?? 'Not detected')}</dd></div>)}</dl> : <p>Reading build facts…</p>}</details></section>
-  }, [surface, status, officialEntry, busy, notice, packs, apps, diagnostics, theme, sourceLabel])
-
-  return <div className="app-shell"><header className="topbar"><button className="brand" onClick={() => setSurface('start')} aria-label="NeedleBub home"><KittyMark /><span>NeedleBub</span></button><span className="alpha-label">Private alpha</span></header><nav className="surface-nav" aria-label="NeedleBub sections">{surfaces.map((item) => <button key={item.id} className={surface === item.id ? 'active' : ''} aria-current={surface === item.id ? 'page' : undefined} onClick={() => { setNotice(null); setSurface(item.id) }}>{item.label}</button>)}</nav><main>{content}</main></div>
+  return <div className="app-shell"><AppBar route={route} />{content}</div>
 }
 
-function SourcesView({ apps, status, onChange, onSaved, notice }: { apps: NotificationApp[]; status: AppStatus; onChange: (apps: NotificationApp[]) => void; onSaved: (allApps: boolean, packages: string[]) => Promise<void>; notice: string | null }) {
-  const [allApps, setAllApps] = useState(status.allApps); const [filter, setFilter] = useState('')
-  const visible = apps.filter((app) => `${app.label} ${app.packageName}`.toLowerCase().includes(filter.toLowerCase())); const selected = apps.filter((app) => app.selected).map((app) => app.packageName)
-  return <section className="view" aria-labelledby="sources-title"><header className="view-heading"><div><p className="kicker">Notification boundary</p><h1 id="sources-title">Sources</h1></div><button className="primary compact" onClick={() => void onSaved(allApps, selected)}>Save choices</button></header>{notice && <p className="notice" role="status">{notice}</p>}<label className="switch-row"><span><strong>All notification apps</strong><small>Explicitly send every eligible notification through the OTP prefilter.</small></span><input type="checkbox" checked={allApps} onChange={(event) => setAllApps(event.target.checked)} /><i aria-hidden="true" /></label>{!allApps && <><label className="search-label" htmlFor="app-filter">Find an app</label><input id="app-filter" className="search-input" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="App name or package" /><div className="app-list">{visible.map((app) => <label key={app.packageName}><input type="checkbox" checked={app.selected} onChange={(event) => onChange(apps.map((entry) => entry.packageName === app.packageName ? { ...entry, selected: event.target.checked } : entry))} /><span><strong>{app.label}</strong><code>{app.packageName}</code></span></label>)}</div></>}<p className="privacy-line">Hidden lock-screen content stays hidden; NeedleBub receives only what Android exposes to its listener.</p></section>
+function HomeView({ status, officialEntry, officialPack, busy, notice, onRefresh, onRun, onStatusChange }: {
+  status: AppStatus
+  officialEntry?: CatalogueEntry
+  officialPack?: PackInfo
+  busy: string | null
+  notice: string | null
+  onRefresh: () => Promise<void>
+  onRun: (key: string, work: () => Promise<unknown>, success?: string) => Promise<void>
+  onStatusChange: React.Dispatch<React.SetStateAction<AppStatus>>
+}) {
+  const sourceValue = status.allApps ? 'All apps' : status.selectedAppCount === 1 ? '1 app' : `${status.selectedAppCount} apps`
+  const setEnabled = async (enabled: boolean) => {
+    const previous = status.automaticOtpEnabled
+    onStatusChange((current) => ({ ...current, automaticOtpEnabled: enabled }))
+    try {
+      await needleBub.setAutomaticOtpEnabled({ enabled })
+      await onRefresh()
+    } catch {
+      onStatusChange((current) => ({ ...current, automaticOtpEnabled: previous }))
+    }
+  }
+
+  if (!status.automaticOtpConfigured) {
+    const hasSources = status.allApps || status.selectedAppCount > 0
+    const requirements = [
+      { complete: status.otpPackInstalled, label: 'OTP model pack' },
+      { complete: status.notificationAccess, label: 'Notification access' },
+      { complete: status.notificationPermission, label: 'Private result notifications' },
+      { complete: hasSources, label: 'Notification sources' },
+    ]
+    let actionLabel = 'Choose sources'
+    let action = () => navigate('sources')
+    if (!status.otpPackInstalled) {
+      actionLabel = 'Install OTP pack'
+      action = () => void onRun('install', () => officialEntry ? needleBub.installCataloguePack({ id: officialEntry.id }) : needleBub.pickPack())
+    } else if (!status.notificationAccess) {
+      actionLabel = 'Open notification access'
+      action = () => void needleBub.openNotificationAccess()
+    } else if (!status.notificationPermission) {
+      actionLabel = 'Allow notifications'
+      action = () => void onRun('permission', async () => { await needleBub.requestNotificationPermission() })
+    }
+    return <main className="screen home-screen">
+      <section className="setup-block" aria-labelledby="setup-title">
+        <h1 id="setup-title">Set up automatic OTP</h1>
+        <p>Four local requirements, then NeedleBub can stay out of the way.</p>
+        <ol className="requirements">{requirements.map((item) => <RequirementRow key={item.label} {...item} />)}</ol>
+        {notice && <p className="inline-notice" role="status">{notice}</p>}
+        <button className="primary-action" disabled={busy !== null} onClick={action}>{busy ? 'Working…' : actionLabel}</button>
+      </section>
+      <p className="privacy-note">Notification text and extracted codes are never stored or transmitted.</p>
+    </main>
+  }
+
+  const active = status.automaticOtpEnabled
+  return <main className="screen home-screen">
+    <section className="status-block" aria-labelledby="automatic-title">
+      <div className="status-heading"><div><h1 id="automatic-title">Automatic OTP</h1><p className={active ? 'status-copy status-copy--active' : 'status-copy'}>{active ? `Listening to ${status.allApps ? 'all notification apps' : sourceValue}` : 'Paused'}</p></div><Toggle label="Automatic OTP" checked={active} disabled={busy !== null} onChange={(enabled) => void setEnabled(enabled)} /></div>
+      <p className="route-line">{sourceValue} → {officialPack?.name ?? 'OTP Extractor'} → private notification</p>
+    </section>
+    {notice && <p className="inline-notice" role="status">{notice}</p>}
+    <div className="utility-list" aria-label="Automatic OTP configuration">
+      <UtilityRow icon="apps" label="Sources" value={sourceValue} onClick={() => navigate('sources')} />
+      <UtilityRow icon="package" label="Model pack" value={officialPack ? `${officialPack.name} ${officialPack.version}` : 'Not installed'} onClick={() => navigate('packs')} />
+    </div>
+    <p className="privacy-note">Processing stays on this device.</p>
+  </main>
+}
+
+function SourcesView({ apps, status, onAppsChange, onRefresh }: { apps: NotificationApp[]; status: AppStatus; onAppsChange: (apps: NotificationApp[]) => void; onRefresh: () => Promise<void> }) {
+  const [allApps, setAllApps] = useState(status.allApps)
+  const [filter, setFilter] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const selectedPackages = (entries: NotificationApp[]) => entries.filter((app) => app.selected).map((app) => app.packageName)
+  const save = async (nextAllApps: boolean, nextApps: NotificationApp[], rollback: () => void) => {
+    setSaving(true)
+    setError(null)
+    try {
+      await needleBub.saveNotificationApps({ allApps: nextAllApps, packages: selectedPackages(nextApps) })
+      await onRefresh()
+    } catch {
+      rollback()
+      setError('Could not save that source change. Your previous selection is still active.')
+    } finally {
+      setSaving(false)
+    }
+  }
+  const visible = apps.filter((app) => `${app.label} ${app.packageName}`.toLowerCase().includes(filter.toLowerCase()))
+
+  return <main className="screen detail-screen">
+    <h1>Sources</h1>
+    <p className="screen-intro">Choose which notifications may reach the OTP prefilter.</p>
+    {error && <p className="inline-notice inline-notice--error" role="alert">{error}</p>}
+    <div className="switch-row"><span><strong>All notification apps</strong><small>Process every eligible notification.</small></span><Toggle label="All notification apps" checked={allApps} disabled={saving} onChange={(checked) => { const previous = allApps; setAllApps(checked); void save(checked, apps, () => setAllApps(previous)) }} /></div>
+    {!allApps && <>
+      <label className="field-label" htmlFor="app-filter">Find an app</label>
+      <input id="app-filter" className="search-input" value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="App name or package" />
+      <div className="app-list">{visible.map((app) => <label key={app.packageName}>
+        <input type="checkbox" checked={app.selected} disabled={saving} onChange={(event) => { const previous = apps; const next = apps.map((entry) => entry.packageName === app.packageName ? { ...entry, selected: event.target.checked } : entry); onAppsChange(next); void save(false, next, () => onAppsChange(previous)) }} />
+        <span><strong>{app.label}</strong><code>{app.packageName}</code></span>
+      </label>)}</div>
+    </>}
+    <p className="privacy-note">Hidden lock-screen content stays hidden.</p>
+  </main>
+}
+
+function PacksView({ packs, officialEntry, busy, notice, run }: { packs: PackInfo[]; officialEntry?: CatalogueEntry; busy: string | null; notice: string | null; run: (key: string, work: () => Promise<unknown>, success?: string) => Promise<void> }) {
+  const officialInstalled = packs.find((pack) => pack.id === officialEntry?.id)
+  return <main className="screen detail-screen">
+    <div className="screen-title-row"><div><h1>Packs</h1><p className="screen-intro">Installed local capabilities.</p></div><button className="secondary-action" disabled={busy !== null} onClick={() => void run('import', () => needleBub.pickPack(), 'Pack imported as unverified.')}>Import</button></div>
+    {notice && <p className="inline-notice" role="status">{notice}</p>}
+    {!officialInstalled && officialEntry && <section className="install-row"><div><strong>OTP Extractor</strong><small>Official catalogue · {Math.round(officialEntry.size / 1_000_000)} MB</small></div><button className="primary-small" disabled={busy !== null} onClick={() => void run('install', () => needleBub.installCataloguePack({ id: officialEntry.id }), 'OTP Extractor installed.')}>{busy === 'install' ? 'Installing…' : 'Install'}</button></section>}
+    <div className="pack-list">{packs.map((pack) => {
+      const updateAvailable = pack.id === officialEntry?.id && pack.version !== officialEntry.version
+      return <details className="pack-item" key={`${pack.id}@${pack.version}`}>
+        <summary><Icon name="package" /><span><strong>{pack.name}</strong><small>{pack.version} · {pack.verified ? 'Verified' : 'Unverified'}</small></span><Icon name="arrow" /></summary>
+        <div className="pack-detail"><p>{pack.description}</p><dl><div><dt>Author</dt><dd>{pack.author}</dd></div><div><dt>License</dt><dd>{pack.license}</dd></div><div><dt>Outputs</dt><dd>{pack.outputs.join(', ')}</dd></div></dl>{updateAvailable && <button className="secondary-action" disabled={busy !== null} onClick={() => void run('update', () => needleBub.installCataloguePack({ id: officialEntry.id }), 'Pack updated.')}>Update to {officialEntry.version}</button>}<button className="danger-action" disabled={busy !== null} onClick={() => { const warning = pack.id === 'de.x0bubbuff.needlebub.otp' ? `Remove ${pack.name} ${pack.version}? Automatic OTP will stop until it is reinstalled.` : `Remove ${pack.name} ${pack.version}?`; if (window.confirm(warning)) void run(`remove-${pack.id}`, () => needleBub.removePack({ id: pack.id, version: pack.version }), `${pack.name} removed.`) }}>Remove {pack.name}</button></div>
+      </details>
+    })}</div>
+    {packs.length === 0 && !officialEntry && <p className="empty-copy">No packs installed. Import a local <code>.nbpack</code> to begin.</p>}
+  </main>
+}
+
+function AdvancedView({ status, diagnostics, coldCheck, busy, onRunColdCheck }: { status: AppStatus; diagnostics: DiagnosticInfo | null; coldCheck: ColdModelCheck | null; busy: string | null; onRunColdCheck: () => void }) {
+  const result = coldCheck ? coldCheck.passed
+    ? `Passed · ${coldCheck.coldLoad ? 'cold load' : 'warm load'} · ${coldCheck.durationMs} ms · ${Math.round(coldCheck.pssKb / 1024)} MiB`
+    : `Failed · ${coldCheck.errorCode ?? 'RUNTIME_CRASH'} · ${coldCheck.durationMs} ms`
+    : null
+  return <main className="screen detail-screen">
+    <h1>Advanced</h1>
+    <section className="advanced-section"><h2>Runtime check</h2><p>Reloads the installed OTP model and runs a fixed local fixture. No code or model output is shown.</p><button className="primary-action" disabled={busy !== null} onClick={onRunColdCheck}>{busy === 'cold-check' ? 'Running cold check…' : 'Run cold model check'}</button>{result && <p className={coldCheck?.passed ? 'check-result check-result--passed' : 'check-result'} role="status">{result}</p>}</section>
+    <section className="advanced-section"><h2>Android</h2><button className="plain-row" onClick={() => void needleBub.openNotificationSettings()}><span><strong>Notification settings</strong><small>Result channel and lock-screen privacy</small></span><Icon name="arrow" /></button><button className="plain-row" disabled={!status.macroDroidInstalled} onClick={() => void needleBub.openMacroDroid()}><span><strong>MacroDroid</strong><small>{status.macroDroidInstalled ? 'Installed · open automation app' : 'Not installed'}</small></span><Icon name="arrow" /></button></section>
+    <section className="advanced-section"><h2>Developer gateway</h2><code className="code-block">de.x0bubbuff.needlebub.action.INFERENCE_GATEWAY</code><p>One in flight per UID · burst 3 · 10 requests per minute.</p></section>
+    <details className="advanced-details"><summary><Icon name="info" /><span>Diagnostics and build facts</span><Icon name="arrow" /></summary><div><code className="code-block">adb logcat -s NeedleRuntime:I</code>{diagnostics ? <dl className="diagnostic-list">{Object.entries(diagnostics).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{String(value ?? 'Not detected')}</dd></div>)}</dl> : <p>Reading build facts…</p>}</div></details>
+    <details className="advanced-details"><summary><Icon name="info" /><span>Privacy and licenses</span><Icon name="arrow" /></summary><div><p>Notification text, extracted codes, tool arguments, and result JSON are never persisted or transmitted.</p><p>NeedleBub is MIT licensed. Needle and the Locale protocol notices are Apache-2.0.</p><p>Appearance follows Android automatically.</p></div></details>
+  </main>
 }

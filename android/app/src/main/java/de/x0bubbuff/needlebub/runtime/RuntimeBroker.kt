@@ -19,6 +19,8 @@ class RuntimeBroker(context: Context) {
         val pack: InstalledPack,
         val input: String,
         val timeoutMs: Long,
+        val surface: String,
+        val forceReload: Boolean,
         val callback: (RuntimeResponse) -> Unit,
     )
 
@@ -58,12 +60,22 @@ class RuntimeBroker(context: Context) {
         pack: InstalledPack,
         input: String,
         timeoutMs: Long,
+        surface: String = "gateway",
+        forceReload: Boolean = false,
         callback: (RuntimeResponse) -> Unit,
     ): Boolean {
         if (queue.size + (if (current == null) 0 else 1) >= MAX_QUEUE) return false
         idleRelease?.let(handler::removeCallbacks)
         idleRelease = null
-        queue.addLast(Work(internalRequestId, pack, input, timeoutMs.coerceIn(250L, 30_000L), callback))
+        queue.addLast(Work(
+            internalRequestId,
+            pack,
+            input,
+            timeoutMs.coerceIn(250L, 30_000L),
+            surface.takeIf { it in SURFACES } ?: "gateway",
+            forceReload,
+            callback,
+        ))
         ensureBoundLocked()
         dispatchLocked()
         return true
@@ -106,6 +118,8 @@ class RuntimeBroker(context: Context) {
             work.pack.manifest.queryTemplate,
             work.pack.manifest.modelSize,
             work.timeoutMs,
+            work.surface,
+            work.forceReload,
         )
         val timeoutAction = Runnable {
             synchronized(this@RuntimeBroker) {
@@ -156,7 +170,7 @@ class RuntimeBroker(context: Context) {
         } else {
             val release = Runnable { synchronized(this@RuntimeBroker) { if (current == null && queue.isEmpty()) releaseRuntimeLocked() } }
             idleRelease = release
-            handler.postDelayed(release, IDLE_RELEASE_MS)
+            handler.postDelayed(release, RuntimePolicy.IDLE_RELEASE_MS)
         }
     }
 
@@ -169,11 +183,11 @@ class RuntimeBroker(context: Context) {
     }
 
     private fun error(work: Work, code: String) = RuntimeResponse(
-        work.internalRequestId, "ERROR", null, null, code, 0L,
+        work.internalRequestId, "ERROR", null, null, code, 0L, work.forceReload, 0L,
     )
 
     private companion object {
         const val MAX_QUEUE = 8
-        const val IDLE_RELEASE_MS = 120_000L
+        val SURFACES = setOf("notification", "gateway", "macro", "check")
     }
 }

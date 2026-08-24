@@ -17,7 +17,11 @@ class NeedleNotificationListenerService : NotificationListenerService() {
     private val settings by lazy { AutomationSettings(this) }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        if (sbn.packageName == packageName || !settings.accepts(sbn.packageName)) return
+        if (!AutomaticOtpState.mayInspectNotification(
+                settings.enabled,
+                sbn.packageName == packageName,
+                settings.accepts(sbn.packageName),
+            )) return
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
         val app = application as NeedleBubApplication
         val pack = app.packStore.officialOtp() ?: return
@@ -37,7 +41,8 @@ class NeedleNotificationListenerService : NotificationListenerService() {
         if (!deduplicator.shouldProcess(sbn.packageName, sbn.key, query)) return
 
         val requestId = "notification-${UUID.randomUUID()}"
-        app.runtime.infer(requestId, pack, query, NOTIFICATION_TIMEOUT_MS) { response ->
+        app.runtime.infer(requestId, pack, query, NOTIFICATION_TIMEOUT_MS, surface = "notification") { response ->
+            if (!AutomaticOtpState.mayPublishResult(settings.enabled)) return@infer
             if (response.status != "OK" || response.toolName != "extract_otp" || response.resultJson == null || response.errorCode != null) return@infer
             val calls = JSONArray().put(JSONObject().put("name", response.toolName).put("arguments", JSONObject(response.resultJson)))
             val accepted = OtpPostprocessor.process(query, calls.toString()) ?: return@infer

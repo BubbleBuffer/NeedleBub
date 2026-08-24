@@ -31,7 +31,7 @@ class LocaleActionReceiver : BroadcastReceiver() {
             return
         }
         val requestId = "macro-${UUID.randomUUID()}"
-        if (!app.runtime.infer(requestId, pack, input, MACRO_TIMEOUT_MS) { response ->
+        if (!app.runtime.infer(requestId, pack, input, MACRO_TIMEOUT_MS, surface = "macro") { response ->
             app.macroLimiter.finish(MACRO_RATE_KEY)
             val matched = response.status == "OK" && response.resultJson != null
             finish(pending, OutputMapper.map(pack.manifest, matched, response.toolName, response.resultJson, response.errorCode))

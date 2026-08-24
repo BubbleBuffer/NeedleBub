@@ -19,7 +19,11 @@ import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
 import de.x0bubbuff.needlebub.notifications.AutomationSettings
+import de.x0bubbuff.needlebub.notifications.AutomaticOtpState
+import de.x0bubbuff.needlebub.gateway.ErrorCodes
+import de.x0bubbuff.needlebub.otp.OtpPostprocessor
 import de.x0bubbuff.needlebub.packs.PackManifest
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
@@ -46,14 +50,31 @@ class NeedleBubPlugin : Plugin() {
     @PluginMethod
     fun status(call: PluginCall) {
         val selected = automation.selectedPackages
+        val packInstalled = app.packStore.officialOtp() != null
+        val notificationAccess = context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context)
+        val notificationPermission = getPermissionState("notifications").toString() == "granted"
+        val configured = AutomaticOtpState.configured(
+            packInstalled,
+            notificationAccess,
+            notificationPermission,
+            automation.allApps || selected.isNotEmpty(),
+        )
         call.resolve(JSObject()
-            .put("otpPackInstalled", app.packStore.officialOtp() != null)
-            .put("notificationAccess", context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context))
-            .put("notificationPermission", getPermissionState("notifications").toString() == "granted")
+            .put("otpPackInstalled", packInstalled)
+            .put("notificationAccess", notificationAccess)
+            .put("notificationPermission", notificationPermission)
             .put("allApps", automation.allApps)
             .put("selectedAppCount", selected.size)
-            .put("automaticOtpReady", app.packStore.officialOtp() != null && context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context) && getPermissionState("notifications").toString() == "granted" && (automation.allApps || selected.isNotEmpty()))
+            .put("automaticOtpConfigured", configured)
+            .put("automaticOtpEnabled", automation.enabled)
             .put("macroDroidInstalled", packageInstalled("com.arlosoft.macrodroid")))
+    }
+
+    @PluginMethod
+    fun setAutomaticOtpEnabled(call: PluginCall) {
+        val enabled = call.getBoolean("enabled") ?: return call.reject("enabled is required")
+        automation.enabled = enabled
+        call.resolve()
     }
 
     @PluginMethod
@@ -76,6 +97,55 @@ class NeedleBubPlugin : Plugin() {
     fun openNotificationSettings(call: PluginCall) {
         activity.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
         call.resolve()
+    }
+
+    @PluginMethod
+    fun openMacroDroid(call: PluginCall) {
+        val intent = context.packageManager.getLaunchIntentForPackage(MACRODROID_PACKAGE)
+            ?: return call.reject("MacroDroid is not installed")
+        activity.startActivity(intent)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun runColdModelCheck(call: PluginCall) {
+        val pack = app.packStore.officialOtp()
+        if (pack == null) {
+            call.resolve(coldCheckResult(false, ErrorCodes.PACK_NOT_FOUND, 0L, true, 0L))
+            return
+        }
+        val query = OtpPostprocessor.formatQuery(CHECK_SENDER, CHECK_MESSAGE)
+        val requestId = "check-${UUID.randomUUID()}"
+        val accepted = app.runtime.infer(
+            requestId,
+            pack,
+            query,
+            COLD_CHECK_TIMEOUT_MS,
+            surface = "check",
+            forceReload = true,
+        ) { response ->
+            val postprocessed = if (
+                response.status == "OK" &&
+                response.toolName == "extract_otp" &&
+                response.resultJson != null &&
+                response.errorCode == null
+            ) {
+                val calls = JSONArray().put(JSONObject()
+                    .put("name", response.toolName)
+                    .put("arguments", JSONObject(response.resultJson)))
+                OtpPostprocessor.process(query, calls.toString())
+            } else null
+            val passed = postprocessed?.code == CHECK_CODE
+            val errorCode = response.errorCode ?: if (passed) null else ErrorCodes.NO_MATCH
+            call.resolve(coldCheckResult(
+                passed,
+                errorCode,
+                response.durationMs,
+                response.coldLoad,
+                response.pssKb,
+            ))
+        }
+        if (!accepted) call.resolve(coldCheckResult(false, ErrorCodes.BUSY, 0L, true, 0L))
     }
 
     @PluginMethod
@@ -200,6 +270,7 @@ class NeedleBubPlugin : Plugin() {
             context.packageManager.getPackageInfo("com.arlosoft.macrodroid", 0).versionName
         } catch (_: Exception) { null }
         call.resolve(JSObject()
+            .put("version", BuildConfig.VERSION_NAME)
             .put("engineAbi", PackManifest.ENGINE_ABI)
             .put("supportedAbi", Build.SUPPORTED_ABIS.joinToString())
             .put("installedPackCount", app.packStore.list().size)
@@ -208,6 +279,19 @@ class NeedleBubPlugin : Plugin() {
             .put("targetSdk", 36)
             .put("privacy", "Inputs and results are memory-only"))
     }
+
+    private fun coldCheckResult(
+        passed: Boolean,
+        errorCode: String?,
+        durationMs: Long,
+        coldLoad: Boolean,
+        pssKb: Long,
+    ) = JSObject()
+        .put("passed", passed)
+        .put("errorCode", errorCode ?: JSONObject.NULL)
+        .put("durationMs", durationMs)
+        .put("coldLoad", coldLoad)
+        .put("pssKb", pssKb)
 
     private fun packageInstalled(name: String): Boolean = try {
         context.packageManager.getApplicationInfo(name, 0)
@@ -260,6 +344,11 @@ class NeedleBubPlugin : Plugin() {
     }
 
     private companion object {
+        const val MACRODROID_PACKAGE = "com.arlosoft.macrodroid"
+        const val COLD_CHECK_TIMEOUT_MS = 5_000L
+        const val CHECK_SENDER = "Needle Bank"
+        const val CHECK_CODE = "739241"
+        const val CHECK_MESSAGE = "Your login code is $CHECK_CODE. It expires in 10 minutes."
         val ALLOWED_ARTIFACT_HOSTS = setOf("github.com", "objects.githubusercontent.com", "huggingface.co", "cdn-lfs.hf.co", "cas-bridge.xethub.hf.co")
         const val MAX_ARCHIVE_BYTES = 128L * 1024L * 1024L
     }

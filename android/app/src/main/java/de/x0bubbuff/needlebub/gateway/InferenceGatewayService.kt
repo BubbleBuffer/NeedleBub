@@ -65,7 +65,7 @@ class InferenceGatewayService : Service() {
                 }
                 val internalId = "$uid:${request.requestId}"
                 requestOwners[internalId] = uid
-                val accepted = broker.infer(internalId, pack, request.input, request.timeoutMs) { runtime ->
+                val accepted = broker.infer(internalId, pack, request.input, request.timeoutMs, surface = "gateway") { runtime ->
                     requestOwners.remove(internalId)
                     limiter.finish(uid)
                     val matched = runtime.status == "OK" && runtime.resultJson != null

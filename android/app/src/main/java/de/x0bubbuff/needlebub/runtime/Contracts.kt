@@ -12,6 +12,8 @@ data class RuntimeRequest(
     val queryTemplate: String,
     val modelSize: Long,
     val timeoutMs: Long,
+    val surface: String,
+    val forceReload: Boolean,
 ) : Parcelable
 
 @Parcelize
@@ -22,4 +24,6 @@ data class RuntimeResponse(
     val resultJson: String?,
     val errorCode: String?,
     val durationMs: Long,
+    val coldLoad: Boolean,
+    val pssKb: Long,
 ) : Parcelable

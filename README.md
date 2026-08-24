@@ -10,14 +10,15 @@ inference service has no Android permissions and no network access of its own.
 
 ## Architecture
 
-- React 19, Vite 8, and Capacitor 8 provide the six-surface interface.
+- React 19, Vite 8, and Capacitor 8 provide a compact Home with hash-backed
+  Sources, Packs, and Advanced drill-ins.
 - Kotlin owns pack installation, notification selection, the Locale action,
   public Binder contracts, rate limits, and recovery.
 - `IsolatedInferenceService` is declared with `android:isolatedProcess="true"`.
 - A small JNI library memory-maps a read-only model file descriptor and links a
   checksummed ARM64 Needle archive.
 - The process-global Needle C API is serialized. The last pack stays warm for
-  120 seconds, after which the broker unbinds the isolated process.
+  five idle seconds, after which the broker unbinds the isolated process.
 
 See [NBPACK.md](docs/NBPACK.md), [GATEWAY.md](docs/GATEWAY.md), and
 [PRIVATE_ALPHA.md](docs/PRIVATE_ALPHA.md).
@@ -38,9 +39,10 @@ npm run android:build
 verifies its SHA-256, and writes a release artifact under `artifacts/`. Override
 the source with `OTP_NEEDLE_MODEL_PATH` when needed.
 
-The current host compiles and links on Windows. Loading the tuned model,
-MacroDroid output-variable interoperability, latency, RSS, and runtime-death
-recovery remain device gates and require an attached Android 12+ ARM64 phone.
+The current host compiles and links on Windows. The tuned model and automatic
+OTP path are exercised on an Android 16 Pixel 8 Pro over wireless ADB. The full
+held-out corpus, MacroDroid output-variable interoperability, model switching,
+and binder-death recovery remain broader private-alpha gates.
 
 ## Privacy boundary
 

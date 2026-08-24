@@ -5,6 +5,10 @@ import android.content.Context
 class AutomationSettings(context: Context) {
     private val preferences = context.applicationContext.getSharedPreferences("automation", Context.MODE_PRIVATE)
 
+    var enabled: Boolean
+        get() = preferences.getBoolean("enabled", true)
+        set(value) { preferences.edit().putBoolean("enabled", value).apply() }
+
     var allApps: Boolean
         get() = preferences.getBoolean("all_apps", false)
         set(value) { preferences.edit().putBoolean("all_apps", value).apply() }
