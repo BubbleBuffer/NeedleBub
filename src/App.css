@@ -22,8 +22,9 @@
 
 .kitty-mark { width: 28px; height: 28px; overflow: visible; }
 .kitty-contour, .kitty-face, .kitty-thread { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: square; stroke-linejoin: bevel; }
+.kitty-face { stroke-width: 1.9; }
 .kitty-thread { stroke: var(--apricot); stroke-width: 3.2; }
-.line-icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: square; stroke-linejoin: bevel; flex: 0 0 auto; }
+.line-icon { width: 20px; height: 20px; flex: 0 0 auto; }
 
 .screen { width: min(100%, 680px); margin: 0 auto; padding: 24px 20px max(48px, env(safe-area-inset-bottom)); }
 .screen h1, .screen h2 { margin: 0; font-family: 'Bricolage Grotesque Variable', sans-serif; letter-spacing: -.025em; }

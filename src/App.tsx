@@ -1,4 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
+import {
+  ArrowLeft,
+  Check,
+  ChevronRight,
+  Info,
+  LayoutGrid,
+  Package,
+  Settings,
+  type LucideIcon,
+} from 'lucide-react'
 
 import './App.css'
 import {
@@ -38,21 +48,23 @@ function KittyMark() {
   return <svg className="kitty-mark" viewBox="0 0 48 48" aria-hidden="true">
     <path d="M8 35V17l9-9 7 8 7-8 9 9v18l-6 6H14l-6-6Z" className="kitty-contour" />
     <path d="M31 8l5 5" className="kitty-thread" />
-    <path d="M17 28h2M29 28h2" className="kitty-face" />
+    <path d="m14 29 3-3 3 3m8 0 3-3 3 3M22 32.5c4 0 4 3 0 3 4 0 4 3 0 3" className="kitty-face" />
   </svg>
 }
 
+const icons: Record<IconName, LucideIcon> = {
+  apps: LayoutGrid,
+  arrow: ChevronRight,
+  back: ArrowLeft,
+  check: Check,
+  info: Info,
+  package: Package,
+  settings: Settings,
+}
+
 function Icon({ name }: { name: IconName }) {
-  const paths: Record<IconName, React.ReactNode> = {
-    apps: <><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" /></>,
-    arrow: <path d="m9 6 6 6-6 6" />,
-    back: <path d="m15 5-7 7 7 7M8 12h11" />,
-    check: <path d="m5 12 4 4L19 6" />,
-    info: <><path d="M12 8v.01M12 11v6" /><circle cx="12" cy="12" r="9" /></>,
-    package: <><path d="m4 7 8-4 8 4-8 4-8-4ZM4 7v10l8 4 8-4V7M12 11v10" /></>,
-    settings: <><circle cx="12" cy="12" r="3" /><path d="M19 13.5v-3l-2-.6-.8-1.8 1-1.9-2.1-2.1-1.9 1-1.8-.8-.6-2h-3l-.6 2-1.8.8-1.9-1-2.1 2.1 1 1.9-.8 1.8-2 .6v3l2 .6.8 1.8-1 1.9 2.1 2.1 1.9-1 1.8.8.6 2h3l.6-2 1.8-.8 1.9 1 2.1-2.1-1-1.9.8-1.8 2-.6Z" /></>,
-  }
-  return <svg className="line-icon" viewBox="0 0 24 24" aria-hidden="true">{paths[name]}</svg>
+  const Glyph = icons[name]
+  return <Glyph className="line-icon" aria-hidden="true" focusable="false" strokeWidth={1.8} strokeLinecap="square" strokeLinejoin="bevel" />
 }
 
 function AppBar({ route }: { route: Route }) {
@@ -310,6 +322,6 @@ function AdvancedView({ status, diagnostics, coldCheck, busy, onRunColdCheck }: 
     <section className="advanced-section"><h2>Android</h2><button className="plain-row" onClick={() => void needleBub.openNotificationSettings()}><span><strong>Notification settings</strong><small>Result channel and lock-screen privacy</small></span><Icon name="arrow" /></button><button className="plain-row" disabled={!status.macroDroidInstalled} onClick={() => void needleBub.openMacroDroid()}><span><strong>MacroDroid</strong><small>{status.macroDroidInstalled ? 'Installed · open automation app' : 'Not installed'}</small></span><Icon name="arrow" /></button></section>
     <section className="advanced-section"><h2>Developer gateway</h2><code className="code-block">de.x0bubbuff.needlebub.action.INFERENCE_GATEWAY</code><p>One in flight per UID · burst 3 · 10 requests per minute.</p></section>
     <details className="advanced-details"><summary><Icon name="info" /><span>Diagnostics and build facts</span><Icon name="arrow" /></summary><div><code className="code-block">adb logcat -s NeedleRuntime:I</code>{diagnostics ? <dl className="diagnostic-list">{Object.entries(diagnostics).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{String(value ?? 'Not detected')}</dd></div>)}</dl> : <p>Reading build facts…</p>}</div></details>
-    <details className="advanced-details"><summary><Icon name="info" /><span>Privacy and licenses</span><Icon name="arrow" /></summary><div><p>Notification text, extracted codes, tool arguments, and result JSON are never persisted or transmitted.</p><p>NeedleBub is MIT licensed. Needle and the Locale protocol notices are Apache-2.0.</p><p>Appearance follows Android automatically.</p></div></details>
+    <details className="advanced-details"><summary><Icon name="info" /><span>Privacy and licenses</span><Icon name="arrow" /></summary><div><p>Notification text, extracted codes, tool arguments, and result JSON are never persisted or transmitted.</p><p>NeedleBub is MIT licensed. Needle and the Locale protocol notices are Apache-2.0. Interface icons are from Lucide under ISC/MIT terms.</p><p>Appearance follows Android automatically.</p></div></details>
   </main>
 }
