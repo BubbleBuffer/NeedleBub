@@ -20,6 +20,13 @@ const mockNeedleBub = vi.hoisted(() => ({
   listNotificationApps: vi.fn(),
   saveNotificationApps: vi.fn(),
   diagnostics: vi.fn(),
+  developerDataStatus: vi.fn(),
+  unlockDeveloperData: vi.fn(),
+  setNotificationCaptureEnabled: vi.fn(),
+  exportNotificationCapture: vi.fn(),
+  clearNotificationCapture: vi.fn(),
+  listPersistentDiagnostics: vi.fn(),
+  clearPersistentDiagnostics: vi.fn(),
 }))
 
 vi.mock('./native', () => ({ needleBub: mockNeedleBub }))
@@ -55,6 +62,13 @@ beforeEach(() => {
   mockNeedleBub.catalogue.mockResolvedValue({ entries: [] })
   mockNeedleBub.listNotificationApps.mockResolvedValue({ apps: [] })
   mockNeedleBub.diagnostics.mockResolvedValue({ platform: 'test' })
+  mockNeedleBub.developerDataStatus.mockResolvedValue({ unlocked: false, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null })
+  mockNeedleBub.unlockDeveloperData.mockResolvedValue({ unlocked: true })
+  mockNeedleBub.setNotificationCaptureEnabled.mockResolvedValue(undefined)
+  mockNeedleBub.exportNotificationCapture.mockResolvedValue({ exported: 0, deleted: false })
+  mockNeedleBub.clearNotificationCapture.mockResolvedValue({ removed: 0 })
+  mockNeedleBub.listPersistentDiagnostics.mockResolvedValue({ entries: [] })
+  mockNeedleBub.clearPersistentDiagnostics.mockResolvedValue({ removed: 0 })
   mockNeedleBub.setAutomaticOtpEnabled.mockResolvedValue(undefined)
   mockNeedleBub.saveNotificationApps.mockResolvedValue(undefined)
   mockNeedleBub.removePack.mockResolvedValue({ removed: true })
@@ -160,6 +174,46 @@ describe('NeedleBub compact utility shell', () => {
 
     expect(confirm).toHaveBeenCalledWith('Remove OTP Extractor 1.0.0-alpha.1? Automatic OTP will stop until it is reinstalled.')
     expect(mockNeedleBub.removePack).toHaveBeenCalledWith({ id: 'de.x0bubbuff.needlebub.otp', version: '1.0.0-alpha.1' })
+    confirm.mockRestore()
+  })
+
+  it('reveals developer data only after seven build-fact activations', async () => {
+    window.location.hash = '#/advanced'
+    mockNeedleBub.developerDataStatus
+      .mockResolvedValueOnce({ unlocked: false, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null })
+      .mockResolvedValue({ unlocked: true, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null })
+    const user = userEvent.setup()
+    render(<App />)
+
+    const buildFacts = await screen.findByText('Diagnostics and build facts')
+    for (let index = 0; index < 6; index += 1) await user.click(buildFacts)
+    expect(screen.queryByText('Notification capture')).not.toBeInTheDocument()
+
+    await user.click(buildFacts)
+    await waitFor(() => expect(mockNeedleBub.unlockDeveloperData).toHaveBeenCalledTimes(1))
+    expect(await screen.findByText('Notification capture')).toBeInTheDocument()
+    expect(screen.getByText(/Capture is off/)).toBeInTheDocument()
+  })
+
+  it('keeps capture opt-in and names its sensitive local persistence', async () => {
+    window.location.hash = '#/advanced'
+    mockNeedleBub.developerDataStatus.mockResolvedValue({ unlocked: true, captureEnabled: false, recordCount: 12, storedBytes: 4096, oldestAt: 1_700_000_000_000 })
+    const user = userEvent.setup()
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    render(<App />)
+
+    const toggle = await screen.findByRole('switch', { name: 'Notification capture' })
+    expect(toggle).not.toBeChecked()
+    expect(screen.getByText(/full notification text and model output/i)).toBeInTheDocument()
+    await user.click(toggle)
+
+    await waitFor(() => expect(mockNeedleBub.setNotificationCaptureEnabled).toHaveBeenCalledWith({ enabled: true }))
+
+    const password = screen.getByLabelText('Export password')
+    await user.type(password, 'twelve-chars!')
+    await user.click(screen.getByRole('button', { name: 'Export encrypted capture' }))
+    await waitFor(() => expect(mockNeedleBub.exportNotificationCapture).toHaveBeenCalledWith({ passphrase: 'twelve-chars!', deleteAfterExport: true }))
+    expect(password).toHaveValue('')
     confirm.mockRestore()
   })
 })

@@ -6,6 +6,8 @@ export type CatalogueEntry = { id: string; version: string; name: string; url: s
 export type NotificationApp = { packageName: string; label: string; selected: boolean }
 export type DiagnosticInfo = Record<string, string | number | null>
 export type ColdModelCheck = { passed: boolean; errorCode: string | null; durationMs: number; coldLoad: boolean; pssKb: number }
+export type DeveloperDataStatus = { unlocked: boolean; captureEnabled: boolean; recordCount: number; storedBytes: number; oldestAt: number | null }
+export type PersistentDiagnostic = { id: number; createdAt: number; packageName: string | null; category: string | null; stage: string; pack: string | null; status: string; errorCode: string | null; durationMs: number | null; pssKb: number | null; coldLoad: boolean | null }
 
 interface NeedleBubNative {
   status(): Promise<AppStatus>
@@ -23,6 +25,13 @@ interface NeedleBubNative {
   listNotificationApps(): Promise<{ apps: NotificationApp[] }>
   saveNotificationApps(options: { allApps: boolean; packages: string[] }): Promise<void>
   diagnostics(): Promise<DiagnosticInfo>
+  developerDataStatus(): Promise<DeveloperDataStatus>
+  unlockDeveloperData(): Promise<{ unlocked: boolean }>
+  setNotificationCaptureEnabled(options: { enabled: boolean }): Promise<void>
+  exportNotificationCapture(options: { passphrase: string; deleteAfterExport: boolean }): Promise<{ exported: number; deleted: boolean }>
+  clearNotificationCapture(): Promise<{ removed: number }>
+  listPersistentDiagnostics(options?: { limit?: number }): Promise<{ entries: PersistentDiagnostic[] }>
+  clearPersistentDiagnostics(): Promise<{ removed: number }>
 }
 
 const native = registerPlugin<NeedleBubNative>('NeedleBub')
@@ -43,6 +52,13 @@ const web: NeedleBubNative = {
   listNotificationApps: async () => ({ apps: [] }),
   saveNotificationApps: async () => undefined,
   diagnostics: async () => ({ platform: 'web preview', privacy: 'Inputs and results are memory-only' }),
+  developerDataStatus: async () => ({ unlocked: false, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null }),
+  unlockDeveloperData: async () => ({ unlocked: true }),
+  setNotificationCaptureEnabled: async () => undefined,
+  exportNotificationCapture: async () => { throw new Error('Capture export is available in the Android app.') },
+  clearNotificationCapture: async () => ({ removed: 0 }),
+  listPersistentDiagnostics: async () => ({ entries: [] }),
+  clearPersistentDiagnostics: async () => ({ removed: 0 }),
 }
 
 export const needleBub: NeedleBubNative = Capacitor.isNativePlatform() ? native : web

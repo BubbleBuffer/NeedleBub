@@ -127,6 +127,16 @@
 .diagnostic-list { margin: 12px 0 0; }
 .diagnostic-list div { display: grid; grid-template-columns: minmax(120px, .45fr) 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--thread); }
 .diagnostic-list dt { font-weight: 700; }.diagnostic-list dd { margin: 0; font-family: 'Fragment Mono', monospace; font-size: .72rem; overflow-wrap: anywhere; }
+.sensitive-note { padding: 10px 12px; border-left: 3px solid var(--danger); background: var(--raised); color: var(--ink) !important; }
+.developer-data .switch-row { margin-top: 12px; }
+.compact-evidence { margin-bottom: 18px; }
+.check-row { min-height: 48px; display: flex; align-items: center; gap: 10px; margin: 8px 0 14px; }
+.check-row input { width: 20px; height: 20px; accent-color: var(--apricot); }
+.developer-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.developer-log { margin-top: 20px; border-top: 1px solid var(--thread); padding-top: 12px; }
+.developer-log summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; font-weight: 700; }
+.developer-log-list { max-height: 240px; overflow: auto; display: grid; gap: 4px; margin-bottom: 12px; }
+.developer-log-list code { color: var(--muted); font-size: .7rem; overflow-wrap: anywhere; }
 
 @media (min-width: 760px) {
   .screen { padding-top: 36px; }

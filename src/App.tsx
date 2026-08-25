@@ -17,6 +17,8 @@ import {
   type CatalogueEntry,
   type ColdModelCheck,
   type DiagnosticInfo,
+  type DeveloperDataStatus,
+  type PersistentDiagnostic,
   type NotificationApp,
   type PackInfo,
 } from './native'
@@ -239,7 +241,7 @@ function HomeView({ status, officialEntry, officialPack, busy, notice, onRefresh
         {notice && <p className="inline-notice" role="status">{notice}</p>}
         <button className="primary-action" disabled={busy !== null} onClick={action}>{busy ? 'Working…' : actionLabel}</button>
       </section>
-      <p className="privacy-note">Notification text and extracted codes are never stored or transmitted.</p>
+      <p className="privacy-note">Normal OTP processing does not store or transmit notification text or extracted codes.</p>
     </main>
   }
 
@@ -315,6 +317,47 @@ function PacksView({ packs, officialEntry, busy, notice, run }: { packs: PackInf
 }
 
 function AdvancedView({ status, diagnostics, coldCheck, busy, onRunColdCheck }: { status: AppStatus; diagnostics: DiagnosticInfo | null; coldCheck: ColdModelCheck | null; busy: string | null; onRunColdCheck: () => void }) {
+  const [developerData, setDeveloperData] = useState<DeveloperDataStatus | null>(null)
+  const [persistent, setPersistent] = useState<PersistentDiagnostic[]>([])
+  const [, setBuildTaps] = useState(0)
+  const [developerBusy, setDeveloperBusy] = useState<string | null>(null)
+  const [developerNotice, setDeveloperNotice] = useState<string | null>(null)
+  const [passphrase, setPassphrase] = useState('')
+  const [deleteAfterExport, setDeleteAfterExport] = useState(true)
+
+  const refreshDeveloper = useCallback(async () => {
+    const next = await needleBub.developerDataStatus()
+    setDeveloperData(next)
+    if (next.unlocked) setPersistent((await needleBub.listPersistentDiagnostics({ limit: 30 })).entries)
+  }, [])
+
+  // oxlint-disable-next-line react/set-state-in-effect -- native developer state is loaded when this route mounts.
+  useEffect(() => { void refreshDeveloper() }, [refreshDeveloper])
+
+  const developerRun = async (key: string, work: () => Promise<unknown>, success: string) => {
+    setDeveloperBusy(key)
+    setDeveloperNotice(null)
+    try {
+      await work()
+      setDeveloperNotice(success)
+      await refreshDeveloper()
+      return true
+    } catch (error) {
+      setDeveloperNotice(error instanceof Error ? error.message : 'Developer data did not change.')
+      return false
+    } finally {
+      setDeveloperBusy(null)
+    }
+  }
+
+  const tapBuildFacts = () => {
+    if (developerData?.unlocked) return
+    setBuildTaps((current) => {
+      const next = current + 1
+      if (next === 7) void developerRun('unlock', () => needleBub.unlockDeveloperData(), 'Developer data unlocked. Capture remains off.')
+      return next
+    })
+  }
   const result = coldCheck ? coldCheck.passed
     ? `Passed · ${coldCheck.coldLoad ? 'cold load' : 'warm load'} · ${coldCheck.durationMs} ms · ${Math.round(coldCheck.pssKb / 1024)} MiB`
     : `Failed · ${coldCheck.errorCode ?? 'RUNTIME_CRASH'} · ${coldCheck.durationMs} ms`
@@ -324,7 +367,19 @@ function AdvancedView({ status, diagnostics, coldCheck, busy, onRunColdCheck }: 
     <section className="advanced-section"><h2>Runtime check</h2><p>Reloads the installed OTP model and runs a fixed local fixture. No code or model output is shown.</p><button className="primary-action" disabled={busy !== null} onClick={onRunColdCheck}>{busy === 'cold-check' ? 'Running cold check…' : 'Run cold model check'}</button>{result && <p className={coldCheck?.passed ? 'check-result check-result--passed' : 'check-result'} role="status">{result}</p>}</section>
     <section className="advanced-section"><h2>Android</h2><button className="plain-row" onClick={() => void needleBub.openNotificationSettings()}><span><strong>Notification settings</strong><small>Result channel and lock-screen privacy</small></span><Icon name="arrow" /></button><button className="plain-row" disabled={!status.macroDroidInstalled} onClick={() => void needleBub.openMacroDroid()}><span><strong>MacroDroid</strong><small>{status.macroDroidInstalled ? 'Installed · open automation app' : 'Not installed'}</small></span><Icon name="arrow" /></button></section>
     <section className="advanced-section"><h2>Developer gateway</h2><code className="code-block">de.x0bubbuff.needlebub.action.INFERENCE_GATEWAY</code><p>One in flight per UID · burst 3 · 10 requests per minute.</p></section>
-    <details className="advanced-details"><summary><Icon name="info" /><span>Diagnostics and build facts</span><Icon name="arrow" /></summary><div><code className="code-block">adb logcat -s NeedleRuntime:I</code>{diagnostics ? <dl className="diagnostic-list">{Object.entries(diagnostics).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{String(value ?? 'Not detected')}</dd></div>)}</dl> : <p>Reading build facts…</p>}</div></details>
-    <details className="advanced-details"><summary><Icon name="info" /><span>Privacy and licenses</span><Icon name="arrow" /></summary><div><p>Notification text, extracted codes, tool arguments, and result JSON are never persisted or transmitted.</p><p>NeedleBub is MIT licensed. Needle and the Locale protocol notices are Apache-2.0. Interface icons are from Lucide under ISC/MIT terms.</p><p>Appearance follows Android automatically.</p></div></details>
+    <details className="advanced-details"><summary onClick={tapBuildFacts}><Icon name="info" /><span>Diagnostics and build facts</span><Icon name="arrow" /></summary><div><code className="code-block">adb logcat -s NeedleRuntime:I</code>{diagnostics ? <dl className="diagnostic-list">{Object.entries(diagnostics).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{String(value ?? 'Not detected')}</dd></div>)}</dl> : <p>Reading build facts…</p>}</div></details>
+    {developerData?.unlocked && <section className="advanced-section developer-data" aria-labelledby="developer-data-title">
+      <h2 id="developer-data-title">Developer data</h2>
+      <p className="sensitive-note">When capture is on, full notification text and model output are encrypted and stored only on this device.</p>
+      {developerNotice && <p className="inline-notice" role="status">{developerNotice}</p>}
+      <div className="switch-row"><span><strong>Notification capture</strong><small>{developerData.captureEnabled ? 'Capture is on · all apps except NeedleBub' : 'Capture is off · normal privacy behavior'}</small></span><Toggle label="Notification capture" checked={developerData.captureEnabled} disabled={developerBusy !== null} onChange={(enabled) => { if (!enabled || window.confirm('Capture full notification text and model output locally for research?')) void developerRun('capture', () => needleBub.setNotificationCaptureEnabled({ enabled }), enabled ? 'Capture enabled for all apps except NeedleBub.' : 'Capture stopped. Existing encrypted records remain.') }} /></div>
+      <dl className="diagnostic-list compact-evidence"><div><dt>Records</dt><dd>{developerData.recordCount}</dd></div><div><dt>Encrypted size</dt><dd>{Math.ceil(developerData.storedBytes / 1024)} KiB</dd></div><div><dt>Retention</dt><dd>30 days · 10,000 max</dd></div></dl>
+      <label className="field-label" htmlFor="capture-passphrase">Export password</label>
+      <input id="capture-passphrase" className="search-input" type="password" autoComplete="new-password" minLength={12} value={passphrase} onChange={(event) => setPassphrase(event.target.value)} />
+      <label className="check-row"><input type="checkbox" checked={deleteAfterExport} onChange={(event) => setDeleteAfterExport(event.target.checked)} /><span>Delete captured records after a verified export</span></label>
+      <div className="developer-actions"><button className="secondary-action" disabled={developerBusy !== null || passphrase.length < 12 || developerData.recordCount === 0} onClick={() => void (async () => { if (await developerRun('export', () => needleBub.exportNotificationCapture({ passphrase, deleteAfterExport }), 'Encrypted capture exported.')) setPassphrase('') })()}>{developerBusy === 'export' ? 'Exporting…' : 'Export encrypted capture'}</button><button className="danger-action" disabled={developerBusy !== null || developerData.recordCount === 0} onClick={() => { if (window.confirm(`Permanently remove ${developerData.recordCount} captured notification records?`)) void developerRun('clear', () => needleBub.clearNotificationCapture(), 'Captured notifications cleared.') }}>Clear captured notifications</button></div>
+      <details className="developer-log"><summary>Persistent metadata diagnostics ({persistent.length})</summary><div className="developer-log-list">{persistent.map((entry) => <code key={entry.id}>{new Date(entry.createdAt).toLocaleString()} · {entry.stage} · {entry.packageName ?? 'app'} · {entry.status}{entry.errorCode ? ` · ${entry.errorCode}` : ''}</code>)}</div><button className="danger-action" disabled={developerBusy !== null || persistent.length === 0} onClick={() => void developerRun('clear-logs', () => needleBub.clearPersistentDiagnostics(), 'Persistent diagnostics cleared.')}>Clear metadata diagnostics</button></details>
+    </section>}
+    <details className="advanced-details"><summary><Icon name="info" /><span>Privacy and licenses</span><Icon name="arrow" /></summary><div><p>During normal operation, notification text, extracted codes, tool arguments, and result JSON are never persisted or transmitted. Explicit Developer capture stores encrypted records locally until export, clearing, or expiry.</p><p>NeedleBub is MIT licensed. Needle and the Locale protocol notices are Apache-2.0. Interface icons are from Lucide under ISC/MIT terms.</p><p>Appearance follows Android automatically.</p></div></details>
   </main>
 }

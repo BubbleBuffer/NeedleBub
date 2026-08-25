@@ -5,8 +5,10 @@ models. The private alpha extracts one-time authentication codes from explicitly
 selected notifications and exposes installed external packs to MacroDroid and
 other Android apps.
 
-Input text, tool calls, OTPs, and result JSON are memory-only. The isolated
-inference service has no Android permissions and no network access of its own.
+Input text, tool calls, OTPs, and result JSON are memory-only during normal
+operation. An explicitly unlocked developer capture can retain encrypted local
+records for dataset work. The isolated inference service has no Android
+permissions and no network access of its own.
 
 ## Architecture
 
@@ -47,9 +49,13 @@ and binder-death recovery remain broader private-alpha gates.
 ## Privacy boundary
 
 NeedleBub never persists or transmits notification bodies, caller input,
-inference output, extracted codes, or result JSON. Diagnostics may contain only
-pack ID/version, status, stable error code, duration, and memory measurements.
-There is no paste/share extractor and no result history.
+inference output, extracted codes, or result JSON during normal operation.
+Tapping build facts seven times unlocks an opt-in developer section. Its capture
+is off by default, encrypts each full notification/model record with an Android
+Keystore key, retains at most 30 days or 10,000 records, and exports only after
+device authentication into a password-authenticated `.nbcapture` file.
+Persistent diagnostics remain metadata-only. There is no paste/share extractor
+or operational result history.
 
 MIT licensed. Needle and the Locale protocol are covered by the notices in
 [NOTICE.md](NOTICE.md).

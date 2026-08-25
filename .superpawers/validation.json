@@ -4,10 +4,11 @@
   "fullProfile": "full",
   "profiles": {
     "quick": {
-      "paths": ["src/**", "package.json", "vite.config.ts", "vitest.config.ts"],
+      "paths": ["src/**", "android/app/src/**", "android/app/build.gradle", "package.json", "vite.config.ts", "vitest.config.ts"],
       "commands": [
         {"id": "web-tests", "argv": ["npm", "test", "--", "--maxWorkers=1"], "timeout_ms": 120000, "provides": ["tests"]},
-        {"id": "web-typecheck", "argv": ["npm", "run", "typecheck"], "timeout_ms": 120000, "provides": ["types"]}
+        {"id": "web-typecheck", "argv": ["npm", "run", "typecheck"], "timeout_ms": 120000, "provides": ["types"]},
+        {"id": "android-tests", "argv": ["npm", "run", "test:android"], "timeout_ms": 300000, "provides": ["android-tests"]}
       ]
     },
     "full": {

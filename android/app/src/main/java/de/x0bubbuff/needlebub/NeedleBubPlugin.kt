@@ -2,6 +2,7 @@ package de.x0bubbuff.needlebub
 
 import android.Manifest
 import android.app.Activity
+import android.app.KeyguardManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -20,6 +21,7 @@ import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
 import de.x0bubbuff.needlebub.notifications.AutomationSettings
 import de.x0bubbuff.needlebub.notifications.AutomaticOtpState
+import de.x0bubbuff.needlebub.developer.DiagnosticEntry
 import de.x0bubbuff.needlebub.gateway.ErrorCodes
 import de.x0bubbuff.needlebub.otp.OtpPostprocessor
 import de.x0bubbuff.needlebub.packs.PackManifest
@@ -265,6 +267,124 @@ class NeedleBubPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun developerDataStatus(call: PluginCall) {
+        val summary = app.developerDataStore.summary()
+        call.resolve(JSObject()
+            .put("unlocked", app.developerDataSettings.unlocked)
+            .put("captureEnabled", app.developerDataSettings.captureEnabled)
+            .put("recordCount", summary.count)
+            .put("storedBytes", summary.storedBytes)
+            .put("oldestAt", summary.oldestAt ?: JSONObject.NULL))
+    }
+
+    @PluginMethod
+    fun unlockDeveloperData(call: PluginCall) {
+        app.developerDataSettings.unlocked = true
+        app.developerDataStore.addDiagnostic(DiagnosticEntry(
+            id = 0, createdAt = System.currentTimeMillis(), packageName = context.packageName,
+            category = null, stage = "developer", pack = null, status = "unlocked",
+            errorCode = null, durationMs = null, pssKb = null, coldLoad = null,
+        ))
+        call.resolve(JSObject().put("unlocked", true))
+    }
+
+    @PluginMethod
+    fun setNotificationCaptureEnabled(call: PluginCall) {
+        if (!app.developerDataSettings.unlocked) return call.reject("Developer data is locked")
+        val enabled = call.getBoolean("enabled") ?: return call.reject("enabled is required")
+        app.developerDataSettings.captureEnabled = enabled
+        app.developerDataStore.addDiagnostic(DiagnosticEntry(
+            id = 0, createdAt = System.currentTimeMillis(), packageName = context.packageName,
+            category = null, stage = "capture", pack = null,
+            status = if (enabled) "enabled" else "disabled", errorCode = null,
+            durationMs = null, pssKb = null, coldLoad = null,
+        ))
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun exportNotificationCapture(call: PluginCall) {
+        if (!app.developerDataSettings.unlocked) return call.reject("Developer data is locked")
+        val passphrase = call.getString("passphrase") ?: return call.reject("passphrase is required")
+        if (passphrase.length < 12) return call.reject("Passphrase must contain at least 12 characters")
+        requireDeviceAuthentication(call, "Export captured notifications", "Confirm before decrypting the local capture", "captureExportAuthenticated")
+    }
+
+    @ActivityCallback
+    private fun captureExportAuthenticated(call: PluginCall?, result: ActivityResult) {
+        if (call == null) return
+        if (result.resultCode != Activity.RESULT_OK) return call.reject("Device authentication was cancelled")
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/octet-stream"
+            putExtra(Intent.EXTRA_TITLE, "needlebub-${System.currentTimeMillis()}.nbcapture")
+        }
+        startActivityForResult(call, intent, "captureExportPicked")
+    }
+
+    @ActivityCallback
+    private fun captureExportPicked(call: PluginCall?, result: ActivityResult) {
+        if (call == null) return
+        val uri = result.data?.data
+        if (result.resultCode != Activity.RESULT_OK || uri == null) return call.reject("No export location selected")
+        val passphrase = call.getString("passphrase")?.toCharArray() ?: return call.reject("passphrase is required")
+        val deleteAfterExport = call.getBoolean("deleteAfterExport", true) == true
+        executor.execute {
+            try {
+                val (payload, count) = app.developerDataStore.encryptedExport(passphrase)
+                context.contentResolver.openOutputStream(uri, "w")?.use { it.write(payload) }
+                    ?: error("Could not open the export destination")
+                val deleted = if (deleteAfterExport) app.developerDataStore.clearCaptures() else 0
+                call.resolve(JSObject().put("exported", count).put("deleted", deleted == count && count > 0))
+            } catch (error: Exception) {
+                call.reject(error.message ?: "Capture export failed")
+            } finally {
+                passphrase.fill('\u0000')
+            }
+        }
+    }
+
+    @PluginMethod
+    fun clearNotificationCapture(call: PluginCall) {
+        if (!app.developerDataSettings.unlocked) return call.reject("Developer data is locked")
+        requireDeviceAuthentication(call, "Clear captured notifications", "This permanently removes the encrypted capture", "captureClearAuthenticated")
+    }
+
+    @ActivityCallback
+    private fun captureClearAuthenticated(call: PluginCall?, result: ActivityResult) {
+        if (call == null) return
+        if (result.resultCode != Activity.RESULT_OK) return call.reject("Device authentication was cancelled")
+        call.resolve(JSObject().put("removed", app.developerDataStore.clearCaptures()))
+    }
+
+    @PluginMethod
+    fun listPersistentDiagnostics(call: PluginCall) {
+        if (!app.developerDataSettings.unlocked) return call.reject("Developer data is locked")
+        val entries = JSArray()
+        app.developerDataStore.diagnostics(call.getInt("limit", 100) ?: 100).forEach { entry ->
+            entries.put(JSObject()
+                .put("id", entry.id)
+                .put("createdAt", entry.createdAt)
+                .put("packageName", entry.packageName ?: JSONObject.NULL)
+                .put("category", entry.category ?: JSONObject.NULL)
+                .put("stage", entry.stage)
+                .put("pack", entry.pack ?: JSONObject.NULL)
+                .put("status", entry.status)
+                .put("errorCode", entry.errorCode ?: JSONObject.NULL)
+                .put("durationMs", entry.durationMs ?: JSONObject.NULL)
+                .put("pssKb", entry.pssKb ?: JSONObject.NULL)
+                .put("coldLoad", entry.coldLoad ?: JSONObject.NULL))
+        }
+        call.resolve(JSObject().put("entries", entries))
+    }
+
+    @PluginMethod
+    fun clearPersistentDiagnostics(call: PluginCall) {
+        if (!app.developerDataSettings.unlocked) return call.reject("Developer data is locked")
+        call.resolve(JSObject().put("removed", app.developerDataStore.clearDiagnostics()))
+    }
+
+    @PluginMethod
     fun diagnostics(call: PluginCall) {
         val macroVersion = try {
             context.packageManager.getPackageInfo("com.arlosoft.macrodroid", 0).versionName
@@ -277,7 +397,15 @@ class NeedleBubPlugin : Plugin() {
             .put("macroDroidVersion", macroVersion ?: JSONObject.NULL)
             .put("minSdk", 31)
             .put("targetSdk", 36)
-            .put("privacy", "Inputs and results are memory-only"))
+            .put("privacy", if (app.developerDataSettings.captureEnabled) "Developer capture is storing encrypted notification records locally" else "Inputs and results are memory-only"))
+    }
+
+    private fun requireDeviceAuthentication(call: PluginCall, title: String, description: String, callback: String) {
+        val manager = context.getSystemService(KeyguardManager::class.java)
+        if (!manager.isDeviceSecure) return call.reject("A secure device lock is required")
+        val intent = manager.createConfirmDeviceCredentialIntent(title, description)
+            ?: return call.reject("Device authentication is unavailable")
+        startActivityForResult(call, intent, callback)
     }
 
     private fun coldCheckResult(
