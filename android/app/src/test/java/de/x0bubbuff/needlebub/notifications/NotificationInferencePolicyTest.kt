@@ -16,8 +16,8 @@ class NotificationInferencePolicyTest {
     }
 
     @Test
-    fun `youtube playback notifications never reach the model`() {
-        assertFalse(NotificationInferencePolicy.shouldInfer(
+    fun `youtube playback notifications reach the model`() {
+        assertTrue(NotificationInferencePolicy.shouldInfer(
             body = "User0332",
             category = "transport",
             hasMediaSession = true,
@@ -26,9 +26,9 @@ class NotificationInferencePolicyTest {
     }
 
     @Test
-    fun `blank system and progress notifications do not reach the model`() {
+    fun `only blank notifications skip the model`() {
         assertFalse(NotificationInferencePolicy.shouldInfer("", "msg", false, null))
-        assertFalse(NotificationInferencePolicy.shouldInfer("System status", "sys", false, null))
-        assertFalse(NotificationInferencePolicy.shouldInfer("Download 50%", "progress", false, null))
+        assertTrue(NotificationInferencePolicy.shouldInfer("System status", "sys", false, null))
+        assertTrue(NotificationInferencePolicy.shouldInfer("Download 50%", "progress", false, null))
     }
 }

@@ -15,6 +15,14 @@ object OtpPostprocessor {
     fun formatQuery(sender: String, message: String): String =
         if (sender.isNotEmpty()) "Sender: $sender\nMessage: $message" else "Message: $message"
 
+    private fun messageBody(query: String): String {
+        val directPrefix = "Message: "
+        if (query.startsWith(directPrefix)) return query.removePrefix(directPrefix)
+        val marker = "\nMessage: "
+        val markerIndex = query.indexOf(marker)
+        return if (markerIndex >= 0) query.substring(markerIndex + marker.length) else query
+    }
+
     fun process(query: String, rawCalls: String): OtpResult? {
         if (rejectedContexts.any { it.containsMatchIn(query) }) return null
         return try {
@@ -24,7 +32,7 @@ object OtpPostprocessor {
             if (call.optString("name") != "extract_otp") return null
             val arguments = call.optJSONObject("arguments") ?: return null
             val code = arguments.opt("code") as? String ?: return null
-            if (!codePattern.matches(code) || !query.contains(code)) return null
+            if (!codePattern.matches(code) || !messageBody(query).contains(code)) return null
             val rawSource = arguments.opt("source") as? String
             OtpResult(code, rawSource?.takeIf { it.isNotEmpty() && query.contains(it) })
         } catch (_: JSONException) {

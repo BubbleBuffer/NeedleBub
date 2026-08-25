@@ -39,6 +39,22 @@ class OtpPostprocessorTest {
     }
 
     @Test
+    fun `rejects codes grounded only in structural sender or label`() {
+        assertNull(
+            OtpPostprocessor.process(
+                "Sender: Noah\nMessage: See you at lunch.",
+                """[{"name":"extract_otp","arguments":{"code":"Noah"}}]""",
+            ),
+        )
+        assertNull(
+            OtpPostprocessor.process(
+                "Sender: YouTube\nMessage: Avoiding Bot Detection by User0332",
+                """[{"name":"extract_otp","arguments":{"code":"Message"}}]""",
+            ),
+        )
+    }
+
+    @Test
     fun `matches the original amount and delivery fixtures`() {
         assertNull(OtpPostprocessor.process("Payment of EUR 165.60 was received.", """[{"name":"extract_otp","arguments":{"code":"16560"}}]"""))
         assertEquals(

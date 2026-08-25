@@ -12,16 +12,20 @@ $applicationId = 'de.x0bubbuff.needlebub'
 $listener = "$applicationId/de.x0bubbuff.needlebub.notifications.NeedleNotificationListenerService"
 
 $devices = & $adb devices
-if (-not ($devices -match '^emulator-\d+\s+device$')) {
+$emulatorLine = $devices | Where-Object { $_ -match '^emulator-\d+\s+device$' } | Select-Object -First 1
+if (-not $emulatorLine) {
     throw 'A booted Android emulator is required.'
 }
+$emulatorSerial = ($emulatorLine -split '\s+')[0]
+$adbTarget = @('-s', $emulatorSerial)
 
 function Get-WebViewTarget {
-    $socketOutput = & $adb shell cat /proc/net/unix
+    $socketOutput = & $adb @adbTarget shell cat /proc/net/unix
     $match = [regex]::Match(($socketOutput -join "`n"), '@(webview_devtools_remote_\d+)')
     if (-not $match.Success) { throw 'NeedleBub WebView debugging socket was not found.' }
-    & $adb forward --remove tcp:9222 2>$null | Out-Null
-    & $adb forward tcp:9222 "localabstract:$($match.Groups[1].Value)" | Out-Null
+    $forward = (& $adb @adbTarget forward --list) | Where-Object { $_ -match "^$([regex]::Escape($emulatorSerial))\s+tcp:9222\s" }
+    if ($forward) { & $adb @adbTarget forward --remove tcp:9222 | Out-Null }
+    & $adb @adbTarget forward tcp:9222 "localabstract:$($match.Groups[1].Value)" | Out-Null
     return (Invoke-RestMethod 'http://127.0.0.1:9222/json')[0].webSocketDebuggerUrl
 }
 
@@ -43,27 +47,38 @@ try {
     Pop-Location
 }
 
-& $adb uninstall $applicationId 2>$null | Out-Null
-& $adb install $apk
+& $adb @adbTarget uninstall $applicationId 2>$null | Out-Null
+& $adb @adbTarget install $apk
 if ($LASTEXITCODE -ne 0) { throw 'Emulator APK installation failed.' }
-& $adb shell pm grant $applicationId android.permission.POST_NOTIFICATIONS
-& $adb shell cmd notification allow_listener $listener
-& $adb shell am start -n "$applicationId/.MainActivity" | Out-Null
+& $adb @adbTarget shell pm grant $applicationId android.permission.POST_NOTIFICATIONS
+& $adb @adbTarget shell cmd notification allow_listener $listener
+& $adb @adbTarget shell am start -n "$applicationId/.MainActivity" | Out-Null
 Start-Sleep -Seconds 2
 
 $target = Get-WebViewTarget
 $enableCapture = @'
 (async()=>{
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-  [...document.querySelectorAll('button')].find(button=>button.getAttribute('aria-label')==='Settings').click();
+  const find=async(selector,predicate,label)=>{
+    for(let attempt=0;attempt<40;attempt+=1){
+      const element=[...document.querySelectorAll(selector)].find(predicate);
+      if(element) return element;
+      await wait(250);
+    }
+    throw new Error(`${label} was not rendered`);
+  };
+  const settings=await find('button',button=>button.getAttribute('aria-label')==='Settings','Settings button');
+  settings.click();
   await wait(150);
-  document.querySelectorAll('summary')[0].click();
+  const buildFacts=await find('summary',()=>true,'Build facts');
+  buildFacts.click();
   await wait(150);
-  const version=document.querySelector('.diagnostic-unlock-target');
+  const version=await find('.diagnostic-unlock-target',()=>true,'Version entry');
   for(let index=0;index<7;index+=1) version.click();
   await wait(600);
   window.confirm=()=>true;
-  document.querySelector('.developer-data input').click();
+  const capture=await find('.developer-data input',()=>true,'Developer capture switch');
+  capture.click();
   for(let attempt=0;attempt<20;attempt+=1){
     await wait(200);
     if(document.body.innerText.includes('Capture is on')) break;
@@ -74,18 +89,18 @@ $enableCapture = @'
 $enabledView = Invoke-CdpExpression $target $enableCapture
 $captureEnabled = $false
 for ($attempt = 0; $attempt -lt 20; $attempt += 1) {
-    $preferences = (& $adb shell run-as $applicationId cat shared_prefs/developer_data.xml) -join "`n"
+    $preferences = (& $adb @adbTarget shell run-as $applicationId cat shared_prefs/developer_data.xml) -join "`n"
     if ($preferences -match 'name="capture_enabled" value="true"') { $captureEnabled = $true; break }
     Start-Sleep -Milliseconds 250
 }
 if (-not $captureEnabled) { throw "Developer notification capture did not become enabled.`n$enabledView" }
 
-& $adb logcat -c
-& $adb shell cmd notification post -t 'Avoiding Bot Detection' needlebub-emulator-smoke 'User0332' | Out-Null
+& $adb @adbTarget logcat -c
+& $adb @adbTarget shell cmd notification post -t 'Avoiding Bot Detection' needlebub-emulator-smoke 'User0332' | Out-Null
 Start-Sleep -Seconds 2
-$crashLog = (& $adb logcat -d -v brief AndroidRuntime:E '*:S') -join "`n"
+$crashLog = (& $adb @adbTarget logcat -d -v brief AndroidRuntime:E '*:S') -join "`n"
 if ($crashLog -match 'FATAL EXCEPTION') { throw "NeedleBub crashed after notification capture.`n$crashLog" }
-if (-not (& $adb shell pidof $applicationId)) { throw 'NeedleBub process exited after notification capture.' }
+if (-not (& $adb @adbTarget shell pidof $applicationId)) { throw 'NeedleBub process exited after notification capture.' }
 
 $target = Get-WebViewTarget
 Invoke-CdpExpression $target "location.reload(); 'reloading'" | Out-Null
