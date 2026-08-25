@@ -9,7 +9,6 @@ export type OtpResult = {
 }
 
 const CODE_PATTERN = /^[A-Za-z0-9]{4,8}$/
-const CANDIDATE_PATTERN = /(?:^|[^A-Za-z0-9])([A-Za-z0-9]{4,8})(?=$|[^A-Za-z0-9])/g
 const REJECTED_CONTEXTS = [
   /\bpromo(?:tional)?\s+code\b/i,
   /\btracking\s+(?:reference|number|code)\b/i,
@@ -17,14 +16,6 @@ const REJECTED_CONTEXTS = [
 
 export function formatOtpQuery(sender: string, message: string): string {
   return sender ? `Sender: ${sender}\nMessage: ${message}` : `Message: ${message}`
-}
-
-export function hasPlausibleCandidate(text: string): boolean {
-  if (text.trim().length === 0) return false
-  for (const match of text.matchAll(CANDIDATE_PATTERN)) {
-    if (/\d/.test(match[1])) return true
-  }
-  return false
 }
 
 export function postprocessOtp(query: string, calls: NeedleToolCall[]): OtpResult | null {

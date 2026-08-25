@@ -7,7 +7,6 @@ data class OtpResult(val code: String, val source: String?)
 
 object OtpPostprocessor {
     private val codePattern = Regex("^[A-Za-z0-9]{4,8}$")
-    private val candidatePattern = Regex("(?:^|[^A-Za-z0-9])([A-Za-z0-9]{4,8})(?=\$|[^A-Za-z0-9])")
     private val rejectedContexts = listOf(
         Regex("\\bpromo(?:tional)?\\s+code\\b", RegexOption.IGNORE_CASE),
         Regex("\\btracking\\s+(?:reference|number|code)\\b", RegexOption.IGNORE_CASE),
@@ -15,9 +14,6 @@ object OtpPostprocessor {
 
     fun formatQuery(sender: String, message: String): String =
         if (sender.isNotEmpty()) "Sender: $sender\nMessage: $message" else "Message: $message"
-
-    fun hasPlausibleCandidate(text: String): Boolean =
-        text.isNotBlank() && candidatePattern.findAll(text).any { match -> match.groupValues[1].any(Char::isDigit) }
 
     fun process(query: String, rawCalls: String): OtpResult? {
         if (rejectedContexts.any { it.containsMatchIn(query) }) return null

@@ -1,6 +1,7 @@
 package de.x0bubbuff.needlebub.notifications
 
 import android.Manifest
+import android.app.Notification
 import android.content.pm.PackageManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -26,12 +27,18 @@ class NeedleNotificationListenerService : NotificationListenerService() {
         val app = application as NeedleBubApplication
         val pack = app.packStore.officialOtp() ?: return
 
-        val extras = sbn.notification.extras
+        val notification = sbn.notification
+        val extras = notification.extras
         val title = extras.getCharSequence("android.title")?.toString().orEmpty()
         val body = extras.getCharSequence("android.bigText")?.toString()
             ?: extras.getCharSequenceArray("android.textLines")?.joinToString("\n")
             ?: extras.getCharSequence("android.text")?.toString().orEmpty()
-        if (!OtpPostprocessor.hasPlausibleCandidate(body)) return
+        if (!NotificationInferencePolicy.shouldInfer(
+                body = body,
+                category = notification.category,
+                hasMediaSession = extras.containsKey(Notification.EXTRA_MEDIA_SESSION),
+                template = extras.getString(Notification.EXTRA_TEMPLATE),
+            )) return
         val appLabel = try {
             val info = packageManager.getApplicationInfo(sbn.packageName, 0)
             packageManager.getApplicationLabel(info).toString()

@@ -1,22 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatOtpQuery, hasPlausibleCandidate, postprocessOtp } from './otp'
+import { formatOtpQuery, postprocessOtp } from './otp'
 
 describe('OTP contract', () => {
   it('formats the measured query exactly', () => {
     expect(formatOtpQuery('Needle Bank', 'Your code is A7B9Q')).toBe(
       'Sender: Needle Bank\nMessage: Your code is A7B9Q',
     )
-  })
-
-  it.each([
-    ['Your code is 1234', true],
-    ['Sign in with A7B9Q2', true],
-    ['No candidate here', false],
-    ['123', false],
-    ['123456789', false],
-  ])('prefilters %j', (message, expected) => {
-    expect(hasPlausibleCandidate(message)).toBe(expected)
   })
 
   it('accepts one grounded extract_otp tool call', () => {

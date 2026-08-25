@@ -282,7 +282,7 @@ function SourcesView({ apps, status, onAppsChange, onRefresh }: { apps: Notifica
 
   return <main className="screen detail-screen">
     <h1>Sources</h1>
-    <p className="screen-intro">Choose which notifications may reach the OTP prefilter.</p>
+    <p className="screen-intro">Choose which notifications may reach the OTP model.</p>
     {error && <p className="inline-notice inline-notice--error" role="alert">{error}</p>}
     <div className="switch-row"><span><strong>All notification apps</strong><small>Process every eligible notification.</small></span><Toggle label="All notification apps" checked={allApps} disabled={saving} onChange={(checked) => { const previous = allApps; setAllApps(checked); void save(checked, apps, () => setAllApps(previous)) }} /></div>
     {!allApps && <>
