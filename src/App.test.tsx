@@ -179,7 +179,7 @@ describe('NeedleBub compact utility shell', () => {
 
   it('reveals developer data only after seven version taps and reports progress from the second tap', async () => {
     window.location.hash = '#/advanced'
-    mockNeedleBub.diagnostics.mockResolvedValue({ version: '0.1.0-alpha.4', platform: 'test' })
+    mockNeedleBub.diagnostics.mockResolvedValue({ version: '0.1.0-alpha.5', platform: 'test' })
     mockNeedleBub.developerDataStatus
       .mockResolvedValueOnce({ unlocked: false, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null })
       .mockResolvedValue({ unlocked: true, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null })
@@ -192,7 +192,7 @@ describe('NeedleBub compact utility shell', () => {
     expect(mockNeedleBub.unlockDeveloperData).not.toHaveBeenCalled()
 
     await user.click(buildFacts)
-    const version = await screen.findByRole('button', { name: 'Version 0.1.0-alpha.4' })
+    const version = await screen.findByRole('button', { name: 'Version 0.1.0-alpha.5' })
     await user.click(version)
     expect(screen.queryByText(/more taps to unlock Developer data/)).not.toBeInTheDocument()
     await user.click(version)

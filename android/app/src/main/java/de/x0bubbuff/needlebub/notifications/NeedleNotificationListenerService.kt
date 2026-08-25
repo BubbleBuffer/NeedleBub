@@ -5,6 +5,7 @@ import android.app.Notification
 import android.content.pm.PackageManager
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 import androidx.core.content.ContextCompat
 import de.x0bubbuff.needlebub.NeedleBubApplication
 import de.x0bubbuff.needlebub.gateway.ErrorCodes
@@ -20,6 +21,14 @@ class NeedleNotificationListenerService : NotificationListenerService() {
     private val settings by lazy { AutomationSettings(this) }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
+        try {
+            processNotification(sbn)
+        } catch (error: Exception) {
+            Log.e(TAG, "surface=notification status=failed error=LISTENER_FAILURE type=${error.javaClass.simpleName}")
+        }
+    }
+
+    private fun processNotification(sbn: StatusBarNotification) {
         val app = application as NeedleBubApplication
         if (sbn.packageName == packageName) return
         val captureEnabled = app.developerDataSettings.captureEnabled
@@ -103,6 +112,7 @@ class NeedleNotificationListenerService : NotificationListenerService() {
     }
 
     private companion object {
+        const val TAG = "NeedleCapture"
         const val NOTIFICATION_TIMEOUT_MS = 5_000L
         const val MAX_TITLE_CHARS = 512
         const val MAX_BODY_CHARS = 8_192

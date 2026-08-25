@@ -1,7 +1,7 @@
 {
   "name": "needlebub",
   "private": true,
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -14,6 +14,7 @@
     "pack:otp": "node scripts/build-otp-pack.mjs",
     "test": "vitest run",
     "test:android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/android-test.ps1",
+    "test:android:emulator": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/android-emulator-smoke.ps1",
     "verify": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify.ps1",
     "test:watch": "vitest",
     "typecheck": "tsc -b",

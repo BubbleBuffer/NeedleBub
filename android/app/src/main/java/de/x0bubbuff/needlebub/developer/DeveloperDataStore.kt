@@ -11,7 +11,6 @@ import java.io.ByteArrayOutputStream
 import java.nio.ByteBuffer
 import java.security.KeyStore
 import java.security.MessageDigest
-import java.security.SecureRandom
 import java.util.UUID
 import java.util.zip.GZIPOutputStream
 import javax.crypto.Cipher
@@ -203,9 +202,10 @@ class DeveloperDataStore(context: Context) : SQLiteOpenHelper(
         }
 
         fun encrypt(plaintext: ByteArray): ByteArray {
-            val nonce = ByteArray(12).also(SecureRandom()::nextBytes)
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(128, nonce))
+            cipher.init(Cipher.ENCRYPT_MODE, key)
+            val nonce = cipher.iv
+            check(nonce.size == 12) { "Android Keystore returned an invalid GCM nonce" }
             val ciphertext = cipher.doFinal(plaintext)
             return ByteBuffer.allocate(nonce.size + ciphertext.size).put(nonce).put(ciphertext).array()
         }

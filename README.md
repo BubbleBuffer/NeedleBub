@@ -33,9 +33,16 @@ Requirements: Node 22+, Android SDK 36, Java 21, CMake 3.22.1, and Android NDK
 ```powershell
 npm install
 npm test
+npm run test:android:emulator
 npm run pack:otp
 npm run android:build
 ```
+
+`test:android:emulator` requires a booted x86_64 Android emulator. It uses a
+property-gated, non-inferencing Needle stub while exercising the production
+Android Keystore, SQLite store, Capacitor controls, system notification
+listener, crash detection, and visible capture count end to end. Release builds
+remain ARM64-only and always link the pinned Needle archive.
 
 `pack:otp` reads the existing tuned model from the sibling `OTPNeedle` project,
 verifies its SHA-256, and writes a release artifact under `artifacts/`. Override
@@ -50,8 +57,8 @@ and binder-death recovery remain broader private-alpha gates.
 
 NeedleBub never persists or transmits notification bodies, caller input,
 inference output, extracted codes, or result JSON during normal operation.
-Tapping the Version entry in build facts seven times unlocks an opt-in developer section. Its capture
-is off by default, encrypts each full notification/model record with an Android
+Tapping the Version entry in build facts seven times unlocks an opt-in developer
+section. Its capture is off by default, encrypts each full notification/model record with an Android
 Keystore key, retains at most 30 days or 10,000 records, and exports only after
 device authentication into a password-authenticated `.nbcapture` file.
 Persistent diagnostics remain metadata-only. There is no paste/share extractor
