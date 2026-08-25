@@ -50,7 +50,7 @@ and binder-death recovery remain broader private-alpha gates.
 
 NeedleBub never persists or transmits notification bodies, caller input,
 inference output, extracted codes, or result JSON during normal operation.
-Tapping build facts seven times unlocks an opt-in developer section. Its capture
+Tapping the Version entry in build facts seven times unlocks an opt-in developer section. Its capture
 is off by default, encrypts each full notification/model record with an Android
 Keystore key, retains at most 30 days or 10,000 records, and exports only after
 device authentication into a password-authenticated `.nbcapture` file.

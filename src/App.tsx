@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   Check,
@@ -319,7 +319,9 @@ function PacksView({ packs, officialEntry, busy, notice, run }: { packs: PackInf
 function AdvancedView({ status, diagnostics, coldCheck, busy, onRunColdCheck }: { status: AppStatus; diagnostics: DiagnosticInfo | null; coldCheck: ColdModelCheck | null; busy: string | null; onRunColdCheck: () => void }) {
   const [developerData, setDeveloperData] = useState<DeveloperDataStatus | null>(null)
   const [persistent, setPersistent] = useState<PersistentDiagnostic[]>([])
-  const [, setBuildTaps] = useState(0)
+  const buildTaps = useRef(0)
+  const unlockToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [unlockToast, setUnlockToast] = useState<string | null>(null)
   const [developerBusy, setDeveloperBusy] = useState<string | null>(null)
   const [developerNotice, setDeveloperNotice] = useState<string | null>(null)
   const [passphrase, setPassphrase] = useState('')
@@ -333,6 +335,7 @@ function AdvancedView({ status, diagnostics, coldCheck, busy, onRunColdCheck }: 
 
   // oxlint-disable-next-line react/set-state-in-effect -- native developer state is loaded when this route mounts.
   useEffect(() => { void refreshDeveloper() }, [refreshDeveloper])
+  useEffect(() => () => { if (unlockToastTimer.current !== null) clearTimeout(unlockToastTimer.current) }, [])
 
   const developerRun = async (key: string, work: () => Promise<unknown>, success: string) => {
     setDeveloperBusy(key)
@@ -350,13 +353,27 @@ function AdvancedView({ status, diagnostics, coldCheck, busy, onRunColdCheck }: 
     }
   }
 
-  const tapBuildFacts = () => {
+  const showUnlockToast = (message: string) => {
+    setUnlockToast(message)
+    if (unlockToastTimer.current !== null) clearTimeout(unlockToastTimer.current)
+    unlockToastTimer.current = setTimeout(() => setUnlockToast(null), 2_200)
+  }
+
+  const tapVersion = () => {
     if (developerData?.unlocked) return
-    setBuildTaps((current) => {
-      const next = current + 1
-      if (next === 7) void developerRun('unlock', () => needleBub.unlockDeveloperData(), 'Developer data unlocked. Capture remains off.')
-      return next
-    })
+    buildTaps.current += 1
+    const remaining = 7 - buildTaps.current
+    if (buildTaps.current > 1 && remaining > 0) showUnlockToast(`${remaining} more ${remaining === 1 ? 'tap' : 'taps'} to unlock Developer data.`)
+    if (remaining === 0) {
+      showUnlockToast('Unlocking Developer data…')
+      void developerRun('unlock', () => needleBub.unlockDeveloperData(), 'Developer data unlocked. Capture remains off.').then((unlocked) => {
+        if (unlocked) showUnlockToast('Developer data unlocked.')
+        else {
+          buildTaps.current = 6
+          showUnlockToast('Could not unlock Developer data. Tap Version again to retry.')
+        }
+      })
+    }
   }
   const result = coldCheck ? coldCheck.passed
     ? `Passed · ${coldCheck.coldLoad ? 'cold load' : 'warm load'} · ${coldCheck.durationMs} ms · ${Math.round(coldCheck.pssKb / 1024)} MiB`
@@ -367,7 +384,8 @@ function AdvancedView({ status, diagnostics, coldCheck, busy, onRunColdCheck }: 
     <section className="advanced-section"><h2>Runtime check</h2><p>Reloads the installed OTP model and runs a fixed local fixture. No code or model output is shown.</p><button className="primary-action" disabled={busy !== null} onClick={onRunColdCheck}>{busy === 'cold-check' ? 'Running cold check…' : 'Run cold model check'}</button>{result && <p className={coldCheck?.passed ? 'check-result check-result--passed' : 'check-result'} role="status">{result}</p>}</section>
     <section className="advanced-section"><h2>Android</h2><button className="plain-row" onClick={() => void needleBub.openNotificationSettings()}><span><strong>Notification settings</strong><small>Result channel and lock-screen privacy</small></span><Icon name="arrow" /></button><button className="plain-row" disabled={!status.macroDroidInstalled} onClick={() => void needleBub.openMacroDroid()}><span><strong>MacroDroid</strong><small>{status.macroDroidInstalled ? 'Installed · open automation app' : 'Not installed'}</small></span><Icon name="arrow" /></button></section>
     <section className="advanced-section"><h2>Developer gateway</h2><code className="code-block">de.x0bubbuff.needlebub.action.INFERENCE_GATEWAY</code><p>One in flight per UID · burst 3 · 10 requests per minute.</p></section>
-    <details className="advanced-details"><summary onClick={tapBuildFacts}><Icon name="info" /><span>Diagnostics and build facts</span><Icon name="arrow" /></summary><div><code className="code-block">adb logcat -s NeedleRuntime:I</code>{diagnostics ? <dl className="diagnostic-list">{Object.entries(diagnostics).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{String(value ?? 'Not detected')}</dd></div>)}</dl> : <p>Reading build facts…</p>}</div></details>
+    <details className="advanced-details"><summary><Icon name="info" /><span>Diagnostics and build facts</span><Icon name="arrow" /></summary><div><code className="code-block">adb logcat -s NeedleRuntime:I</code>{diagnostics ? <dl className="diagnostic-list">{Object.entries(diagnostics).map(([key, value]) => { const displayed = String(value ?? 'Not detected'); return <div key={key}><dt>{key === 'version' ? 'Version' : key}</dt><dd>{key === 'version' ? <button className="diagnostic-unlock-target" aria-label={`Version ${displayed}`} onClick={tapVersion}>{displayed}</button> : displayed}</dd></div> })}</dl> : <p>Reading build facts…</p>}</div></details>
+    {unlockToast && <div className="unlock-toast" role="status" aria-live="polite">{unlockToast}</div>}
     {developerData?.unlocked && <section className="advanced-section developer-data" aria-labelledby="developer-data-title">
       <h2 id="developer-data-title">Developer data</h2>
       <p className="sensitive-note">When capture is on, full notification text and model output are encrypted and stored only on this device.</p>

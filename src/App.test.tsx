@@ -177,8 +177,9 @@ describe('NeedleBub compact utility shell', () => {
     confirm.mockRestore()
   })
 
-  it('reveals developer data only after seven build-fact activations', async () => {
+  it('reveals developer data only after seven version taps and reports progress from the second tap', async () => {
     window.location.hash = '#/advanced'
+    mockNeedleBub.diagnostics.mockResolvedValue({ version: '0.1.0-alpha.4', platform: 'test' })
     mockNeedleBub.developerDataStatus
       .mockResolvedValueOnce({ unlocked: false, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null })
       .mockResolvedValue({ unlocked: true, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null })
@@ -186,10 +187,20 @@ describe('NeedleBub compact utility shell', () => {
     render(<App />)
 
     const buildFacts = await screen.findByText('Diagnostics and build facts')
-    for (let index = 0; index < 6; index += 1) await user.click(buildFacts)
-    expect(screen.queryByText('Notification capture')).not.toBeInTheDocument()
+    await user.click(buildFacts)
+    await user.click(buildFacts)
+    expect(mockNeedleBub.unlockDeveloperData).not.toHaveBeenCalled()
 
     await user.click(buildFacts)
+    const version = await screen.findByRole('button', { name: 'Version 0.1.0-alpha.4' })
+    await user.click(version)
+    expect(screen.queryByText(/more taps to unlock Developer data/)).not.toBeInTheDocument()
+    await user.click(version)
+    expect(await screen.findByText('5 more taps to unlock Developer data.')).toBeInTheDocument()
+    for (let index = 0; index < 4; index += 1) await user.click(version)
+    expect(screen.queryByText('Notification capture')).not.toBeInTheDocument()
+
+    await user.click(version)
     await waitFor(() => expect(mockNeedleBub.unlockDeveloperData).toHaveBeenCalledTimes(1))
     expect(await screen.findByText('Notification capture')).toBeInTheDocument()
     expect(screen.getByText(/Capture is off/)).toBeInTheDocument()

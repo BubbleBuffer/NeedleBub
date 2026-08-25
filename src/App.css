@@ -127,6 +127,9 @@
 .diagnostic-list { margin: 12px 0 0; }
 .diagnostic-list div { display: grid; grid-template-columns: minmax(120px, .45fr) 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--thread); }
 .diagnostic-list dt { font-weight: 700; }.diagnostic-list dd { margin: 0; font-family: 'Fragment Mono', monospace; font-size: .72rem; overflow-wrap: anywhere; }
+.diagnostic-unlock-target { width: 100%; min-height: 48px; margin: -10px 0; padding: 10px 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.diagnostic-unlock-target:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.unlock-toast { position: fixed; z-index: 20; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); width: max-content; max-width: min(420px, calc(100vw - 32px)); transform: translateX(-50%); padding: 11px 14px; border: 1px solid var(--thread-strong); border-radius: 7px 11px 6px 9px; background: var(--duvet); color: #f3efe7; font-size: .9rem; line-height: 1.35; box-shadow: 0 4px 12px rgba(16, 18, 20, .18); }
 .sensitive-note { padding: 10px 12px; border-left: 3px solid var(--danger); background: var(--raised); color: var(--ink) !important; }
 .developer-data .switch-row { margin-top: 12px; }
 .compact-evidence { margin-bottom: 18px; }
