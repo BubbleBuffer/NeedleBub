@@ -21,9 +21,12 @@
 .icon-button:hover, .brand:hover { background: var(--muted-cloth); }
 
 .kitty-mark { width: 28px; height: 28px; overflow: visible; }
-.kitty-contour, .kitty-face, .kitty-thread { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: square; stroke-linejoin: bevel; }
+.kitty-contour, .kitty-face, .kitty-seam, .kitty-thread-loop { fill: none; stroke: var(--ink); stroke-width: 2.4; stroke-linecap: square; stroke-linejoin: bevel; }
 .kitty-face { stroke-width: 1.9; }
-.kitty-thread { stroke: var(--apricot); stroke-width: 3.2; }
+.kitty-seam { stroke: var(--apricot); stroke-linecap: butt; }
+.kitty-needle { fill: var(--ink); }
+.kitty-needle-eye { fill: var(--cloth); }
+.kitty-thread-loop { stroke: var(--apricot); stroke-width: 1.7; }
 .line-icon { width: 20px; height: 20px; flex: 0 0 auto; }
 
 .screen { width: min(100%, 680px); margin: 0 auto; padding: 24px 20px max(48px, env(safe-area-inset-bottom)); }

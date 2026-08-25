@@ -46,9 +46,12 @@ function navigate(route: Route) {
 
 function KittyMark() {
   return <svg className="kitty-mark" viewBox="0 0 48 48" aria-hidden="true">
-    <path d="M8 35V17l9-9 7 8 7-8 9 9v18l-6 6H14l-6-6Z" className="kitty-contour" />
-    <path d="M31 8l5 5" className="kitty-thread" />
-    <path d="m14 29 3-3 3 3m8 0 3-3 3 3M22 32.5c4 0 4 3 0 3 4 0 4 3 0 3" className="kitty-face" />
+    <path d="M40 28V17l-4-4-5-5-7 8-7-8-9 9v18l6 6h13" className="kitty-contour" />
+    <path d="m32 9 3 3" className="kitty-seam" />
+    <path d="m14 29 3-3 3 3m8 0 3-3 3 3M21 32c0 4 3 4 3 0 0 4 3 4 3 0" className="kitty-face" />
+    <path d="m27 42 7.5-12.5q1-2 2.5-.5t0 2.5L29.5 43Z" className="kitty-needle" />
+    <path d="m35 29.5 1.5 1-1 1.5-1.5-1Z" className="kitty-needle-eye" />
+    <path d="M35.8 30c4.5 1.5 6.2 5.7 4 8.8-1.8 2.7-5.2 1.8-4.4-.8" className="kitty-thread-loop" />
   </svg>
 }
 
