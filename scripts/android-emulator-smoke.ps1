@@ -83,7 +83,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Could not configure the emulator device creden
 & $adb @adbTarget shell pm disable-user --user 0 com.google.android.gms | Out-Null
 & $adb @adbTarget shell input keyevent KEYCODE_WAKEUP | Out-Null
 & $adb @adbTarget shell wm dismiss-keyguard | Out-Null
-& $adb @adbTarget shell pm grant $applicationId android.permission.POST_NOTIFICATIONS
+$deviceApi = [int]((& $adb @adbTarget shell getprop ro.build.version.sdk) -join '').Trim()
+if ($deviceApi -ge 33) {
+    & $adb @adbTarget shell pm grant $applicationId android.permission.POST_NOTIFICATIONS
+    if ($LASTEXITCODE -ne 0) { throw 'Notification permission could not be granted.' }
+}
 & $adb @adbTarget shell cmd notification allow_listener $listener
 & $adb @adbTarget shell am start -n "$applicationId/.MainActivity" | Out-Null
 Start-Sleep -Seconds 2

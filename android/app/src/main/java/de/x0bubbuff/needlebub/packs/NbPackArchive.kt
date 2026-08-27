@@ -3,6 +3,7 @@ package de.x0bubbuff.needlebub.packs
 import org.apache.commons.compress.archivers.zip.ZipArchiveEntry
 import org.apache.commons.compress.archivers.zip.ZipFile
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
 import java.nio.file.Files
@@ -42,9 +43,9 @@ object NbPackArchive {
             var toolsRaw: ByteArray? = null
 
             ZipFile.builder().setFile(packFile).get().use { zip ->
-                val iterator = zip.entries.asIterator()
-                while (iterator.hasNext()) {
-                    val entry = iterator.next()
+                val archiveEntries = zip.entries
+                while (archiveEntries.hasMoreElements()) {
+                    val entry = archiveEntries.nextElement()
                     val name = validateEntry(entry)
                     if (entries.put(name, entry) != null) invalid("duplicate archive entry: $name")
                     if (entries.size > MAX_ENTRIES) invalid("too many archive entries")
@@ -129,9 +130,17 @@ object NbPackArchive {
     }
 
     private fun InputStream.readBounded(limit: Int): ByteArray = use { input ->
-        val bytes = input.readNBytes(limit + 1)
-        if (bytes.size > limit) invalid("metadata entry is too large")
-        bytes
+        val output = ByteArrayOutputStream(minOf(limit, DEFAULT_BUFFER_SIZE))
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            total = Math.addExact(total, read)
+            if (total > limit) invalid("metadata entry is too large")
+            output.write(buffer, 0, read)
+        }
+        output.toByteArray()
     }
 
     private fun File.sha256(): String {
