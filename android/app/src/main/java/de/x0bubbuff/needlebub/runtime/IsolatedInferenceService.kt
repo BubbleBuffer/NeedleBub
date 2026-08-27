@@ -67,6 +67,11 @@ class IsolatedInferenceService : Service() {
         var toolName: String? = null
         var resultJson: String? = null
         var coldLoad = request.forceReload
+        var responseType: String? = null
+        var engineSuccess: Boolean? = null
+        var engineErrorCode: String? = null
+        var reasoning: String? = null
+        var callCount = 0
         try {
             if (request.input.toByteArray(Charsets.UTF_8).size > MAX_INPUT_BYTES) {
                 errorCode = ErrorCodes.INPUT_TOO_LARGE
@@ -82,7 +87,8 @@ class IsolatedInferenceService : Service() {
                 if (loadedPack != packKey) {
                     if (NeedleNative.load(model.fd, request.modelSize) != 0) {
                         errorCode = ErrorCodes.PACK_INVALID
-                        respond(callback, request, status, toolName, resultJson, errorCode, started, coldLoad)
+                        respond(callback, request, status, toolName, resultJson, errorCode, started, coldLoad,
+                            responseType, engineSuccess, engineErrorCode, reasoning, callCount)
                         activeRequestId = null
                         return
                     }
@@ -90,7 +96,8 @@ class IsolatedInferenceService : Service() {
                     if (NeedleNative.initialize("", tools) < 0) {
                         NeedleNative.reset()
                         errorCode = ErrorCodes.PACK_INVALID
-                        respond(callback, request, status, toolName, resultJson, errorCode, started, coldLoad)
+                        respond(callback, request, status, toolName, resultJson, errorCode, started, coldLoad,
+                            responseType, engineSuccess, engineErrorCode, reasoning, callCount)
                         activeRequestId = null
                         return
                     }
@@ -103,7 +110,12 @@ class IsolatedInferenceService : Service() {
                     errorCode = ErrorCodes.RUNTIME_CRASH
                 } else {
                     val parsed = JSONObject(envelope)
+                    responseType = parsed.optString("type").takeIf(String::isNotBlank)
+                    engineSuccess = parsed.opt("success") as? Boolean
+                    engineErrorCode = parsed.optString("error_code").takeIf(String::isNotBlank)
+                    reasoning = parsed.optString("reasoning").takeIf(String::isNotBlank)?.take(MAX_REASONING_CHARS)
                     val calls = parsed.optJSONArray("function_calls")
+                    callCount = calls?.length() ?: 0
                     if (parsed.optString("type") != "call" || calls == null || calls.length() != 1) {
                         status = "NO_MATCH"
                         errorCode = ErrorCodes.NO_MATCH
@@ -121,7 +133,8 @@ class IsolatedInferenceService : Service() {
             errorCode = ErrorCodes.RUNTIME_CRASH
         }
         if (!cancelled.remove(request.requestId)) {
-            respond(callback, request, status, toolName, resultJson, errorCode, started, coldLoad)
+            respond(callback, request, status, toolName, resultJson, errorCode, started, coldLoad,
+                responseType, engineSuccess, engineErrorCode, reasoning, callCount)
         }
         activeRequestId = null
     }
@@ -135,12 +148,20 @@ class IsolatedInferenceService : Service() {
         errorCode: String?,
         started: Long,
         coldLoad: Boolean,
+        responseType: String?,
+        engineSuccess: Boolean?,
+        engineErrorCode: String?,
+        reasoning: String?,
+        callCount: Int,
     ) {
         val duration = SystemClock.elapsedRealtime() - started
         val pssKb = Debug.getPss().toLong()
         Log.i(TAG, "pack=${request.packId}@${request.packVersion} surface=${request.surface} load=${if (coldLoad) "cold" else "warm"} status=$status error=${errorCode ?: "none"} durationMs=$duration pssKb=$pssKb")
         try {
-            callback.onResult(RuntimeResponse(request.requestId, status, toolName, resultJson, errorCode, duration, coldLoad, pssKb))
+            callback.onResult(RuntimeResponse(
+                request.requestId, status, toolName, resultJson, errorCode, duration, coldLoad, pssKb,
+                responseType, engineSuccess, engineErrorCode, reasoning, callCount,
+            ))
         } catch (_: Exception) {
             // The caller may have died; never log request or result content.
         }
@@ -151,5 +172,6 @@ class IsolatedInferenceService : Service() {
         const val MAX_INPUT_BYTES = 16 * 1024
         const val MAX_NEW_TOKENS = 256
         const val OUTPUT_CAPACITY = 64 * 1024
+        const val MAX_REASONING_CHARS = 4_096
     }
 }

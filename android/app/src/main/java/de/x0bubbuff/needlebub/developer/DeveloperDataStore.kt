@@ -79,12 +79,59 @@ class DeveloperDataStore(context: Context) : SQLiteOpenHelper(
 
     @Synchronized
     fun attachRuntime(id: String, runtime: JSONObject) {
+        updateCapture(id) { it.put("runtime", runtime) }
+    }
+
+    @Synchronized
+    fun attachOutcome(id: String, outcome: JSONObject) {
+        updateCapture(id) { it.put("outcome", outcome) }
+    }
+
+    private fun updateCapture(id: String, update: (JSONObject) -> JSONObject) {
         val db = writableDatabase
         db.rawQuery("SELECT payload FROM captures WHERE id = ?", arrayOf(id)).use { cursor ->
             if (!cursor.moveToFirst()) return
-            val record = JSONObject(crypto.decrypt(cursor.getBlob(0)).decodeToString()).put("runtime", runtime)
+            val record = update(JSONObject(crypto.decrypt(cursor.getBlob(0)).decodeToString()))
             val values = ContentValues().apply { put("payload", crypto.encrypt(record.toString().encodeToByteArray())) }
             db.update("captures", values, "id = ?", arrayOf(id))
+        }
+    }
+
+    @Synchronized
+    fun captureSummaries(limit: Int, before: Long?, filter: String?): Pair<List<JSONObject>, Long?> {
+        val requested = limit.coerceIn(1, 100)
+        val selection = if (before == null) null else "created_at < ?"
+        val args = before?.let { arrayOf(it.toString()) }
+        val output = mutableListOf<JSONObject>()
+        var nextCursor: Long? = null
+        readableDatabase.query(
+            "captures", arrayOf("created_at", "payload"), selection, args,
+            null, null, "created_at DESC", (requested * 4 + 1).toString(),
+        ).use { cursor ->
+            while (cursor.moveToNext() && output.size < requested) {
+                val record = JSONObject(crypto.decrypt(cursor.getBlob(1)).decodeToString())
+                val outcome = record.optJSONObject("outcome")
+                val decision = outcome?.optString("decision").takeUnless { it.isNullOrBlank() } ?: "PENDING"
+                if (!filter.isNullOrBlank() && filter != "ALL" && decision != filter) continue
+                val createdAt = cursor.getLong(0)
+                output += JSONObject()
+                    .put("id", record.getString("id"))
+                    .put("capturedAt", createdAt)
+                    .put("appLabel", record.optString("appLabel", record.optString("packageName")))
+                    .put("title", record.optString("title"))
+                    .put("decision", decision)
+                    .put("reasonCode", outcome?.optString("reasonCode") ?: "INTERRUPTED")
+                nextCursor = createdAt
+            }
+        }
+        return output to nextCursor.takeIf { output.size == requested }
+    }
+
+    @Synchronized
+    fun capture(id: String): JSONObject? {
+        readableDatabase.rawQuery("SELECT payload FROM captures WHERE id = ?", arrayOf(id)).use { cursor ->
+            if (!cursor.moveToFirst()) return null
+            return JSONObject(crypto.decrypt(cursor.getBlob(0)).decodeToString())
         }
     }
 

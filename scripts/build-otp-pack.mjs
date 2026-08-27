@@ -8,7 +8,8 @@ import { ZipArchive } from 'archiver'
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const packRoot = join(repositoryRoot, 'packs', 'otp')
 const modelPath = resolve(
-  process.env.OTP_NEEDLE_MODEL_PATH ?? join(repositoryRoot, '..', 'OTPNeedle', 'checkpoints', 'otp_needle_4bit.cact'),
+  process.env.OTP_NEEDLE_MODEL_PATH ??
+    join(repositoryRoot, '..', 'OTPNeedle', '.cache', 'reasoning-v1-eval', 'generic-local-seed17-4bit.cact'),
 )
 const manifest = JSON.parse(readFileSync(join(packRoot, 'manifest.json'), 'utf8'))
 

@@ -47,7 +47,7 @@ try {
 
     $artifactDirectory = Join-Path $repositoryRoot 'artifacts'
     New-Item -ItemType Directory -Force -Path $artifactDirectory | Out-Null
-    Copy-Item -LiteralPath $apk -Destination (Join-Path $artifactDirectory 'NeedleBub-0.1.0-alpha.5-arm64.apk') -Force
+    Copy-Item -LiteralPath $apk -Destination (Join-Path $artifactDirectory 'NeedleBub-0.1.0-alpha.6-arm64.apk') -Force
     Write-Output 'NeedleBub verification completed.'
 } finally {
     Pop-Location

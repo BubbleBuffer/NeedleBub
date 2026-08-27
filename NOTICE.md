@@ -10,3 +10,6 @@ not include or depend on TaskerPluginLibrary.
 Interface icons come from Lucide, distributed under the ISC License. Some
 Lucide icons derive from Feather and retain its MIT License. Copyright (c)
 2026 Lucide Icons and Contributors; copyright (c) 2013-present Cole Bemis.
+
+EdDSA-Java 0.3.0 is dedicated to the public domain under CC0 1.0 and is used
+only to verify the pinned Ed25519 catalogue signature on Android.

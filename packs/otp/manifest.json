@@ -1,7 +1,7 @@
 {
   "formatVersion": 1,
   "id": "de.x0bubbuff.needlebub.otp",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "name": "OTP Extractor",
   "author": "BubbleBuffer",
   "description": "Extracts one-time authentication codes and their visible source from notification text.",
@@ -12,7 +12,7 @@
   "model": {
     "path": "model.cact",
     "size": 23174991,
-    "sha256": "1cd1f2a775a640bbdd9bb8ffb95c47786d4c1d409e9a855d9801f9df39f8c4d8"
+    "sha256": "3268ef45dbce50778c7f67cc26baaa8cc4a7745011c5e228fa4b8bfd05beb04e"
   },
   "queryTemplate": "{{input}}",
   "surfaces": ["external", "notification"],

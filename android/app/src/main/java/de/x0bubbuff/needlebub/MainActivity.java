@@ -9,4 +9,10 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(NeedleBubPlugin.class);
         super.onCreate(savedInstanceState);
     }
+
+    @Override
+    public void onStop() {
+        super.onStop();
+        ((NeedleBubApplication) getApplication()).getDeveloperDataSettings().setLabAuthenticated(false);
+    }
 }

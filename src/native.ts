@@ -1,13 +1,28 @@
 import { Capacitor, registerPlugin } from '@capacitor/core'
 
 export type AppStatus = { otpPackInstalled: boolean; notificationAccess: boolean; notificationPermission: boolean; allApps: boolean; selectedAppCount: number; automaticOtpConfigured: boolean; automaticOtpEnabled: boolean; macroDroidInstalled: boolean }
-export type PackInfo = { id: string; version: string; name: string; author: string; description: string; license: string; verified: boolean; surfaces: string[]; outputs: string[] }
+export type PackInfo = { id: string; version: string; name: string; author: string; description: string; license: string; verified: boolean; active: boolean; surfaces: string[]; outputs: string[] }
 export type CatalogueEntry = { id: string; version: string; name: string; url: string; size: number; sha256: string; engineAbi: string }
 export type NotificationApp = { packageName: string; label: string; selected: boolean }
 export type DiagnosticInfo = Record<string, string | number | null>
 export type ColdModelCheck = { passed: boolean; errorCode: string | null; durationMs: number; coldLoad: boolean; pssKb: number }
-export type DeveloperDataStatus = { unlocked: boolean; captureEnabled: boolean; recordCount: number; storedBytes: number; oldestAt: number | null }
+export type DeveloperDataStatus = { unlocked: boolean; labAuthenticated: boolean; captureEnabled: boolean; recordCount: number; storedBytes: number; oldestAt: number | null }
 export type PersistentDiagnostic = { id: number; createdAt: number; packageName: string | null; category: string | null; stage: string; pack: string | null; status: string; errorCode: string | null; durationMs: number | null; pssKb: number | null; coldLoad: boolean | null }
+export type PackUpdateStatus = { enabled: boolean; networkPolicy: 'unmetered'; state: string; currentVersion: string | null; availableVersion: string | null; lastCheckedAt: number | null; lastUpdatedAt: number | null; lastError: string | null }
+export type NotificationRecordSummary = { id: string; capturedAt: number; appLabel: string; title: string; decision: string; reasonCode: string }
+export type NotificationRecord = {
+  id: string
+  capturedAtEpochMs: number
+  packageName: string
+  appLabel: string
+  category: string | null
+  title: string
+  body: string
+  policyDecision: string
+  automaticOtpEnabled: boolean
+  runtime?: { packId?: string; packVersion?: string; status?: string; responseType?: string; engineSuccess?: boolean; engineErrorCode?: string; reasoning?: string; toolName?: string; resultJson?: string; errorCode?: string; durationMs?: number; coldLoad?: boolean; pssKb?: number; callCount?: number }
+  outcome?: { decision: string; reasonCode: string; code?: string; source?: string; sourceDisposition?: string }
+}
 
 interface NeedleBubNative {
   status(): Promise<AppStatus>
@@ -32,6 +47,13 @@ interface NeedleBubNative {
   clearNotificationCapture(): Promise<{ removed: number }>
   listPersistentDiagnostics(options?: { limit?: number }): Promise<{ entries: PersistentDiagnostic[] }>
   clearPersistentDiagnostics(): Promise<{ removed: number }>
+  getPackUpdateStatus(): Promise<PackUpdateStatus>
+  setAutomaticPackUpdates(options: { enabled: boolean }): Promise<void>
+  checkForPackUpdates(): Promise<PackUpdateStatus>
+  authenticateDeveloperLab(): Promise<{ authenticated: boolean }>
+  closeDeveloperLab(): Promise<void>
+  listNotificationRecords(options?: { cursor?: number; limit?: number; filter?: string }): Promise<{ records: NotificationRecordSummary[]; nextCursor: number | null }>
+  getNotificationRecord(options: { id: string }): Promise<NotificationRecord>
 }
 
 const native = registerPlugin<NeedleBubNative>('NeedleBub')
@@ -52,13 +74,20 @@ const web: NeedleBubNative = {
   listNotificationApps: async () => ({ apps: [] }),
   saveNotificationApps: async () => undefined,
   diagnostics: async () => ({ platform: 'web preview', privacy: 'Inputs and results are memory-only' }),
-  developerDataStatus: async () => ({ unlocked: false, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null }),
+  developerDataStatus: async () => ({ unlocked: false, labAuthenticated: false, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null }),
   unlockDeveloperData: async () => ({ unlocked: true }),
   setNotificationCaptureEnabled: async () => undefined,
   exportNotificationCapture: async () => { throw new Error('Capture export is available in the Android app.') },
   clearNotificationCapture: async () => ({ removed: 0 }),
   listPersistentDiagnostics: async () => ({ entries: [] }),
   clearPersistentDiagnostics: async () => ({ removed: 0 }),
+  getPackUpdateStatus: async () => ({ enabled: true, networkPolicy: 'unmetered', state: 'idle', currentVersion: null, availableVersion: null, lastCheckedAt: null, lastUpdatedAt: null, lastError: null }),
+  setAutomaticPackUpdates: async () => undefined,
+  checkForPackUpdates: async () => web.getPackUpdateStatus(),
+  authenticateDeveloperLab: async () => ({ authenticated: true }),
+  closeDeveloperLab: async () => undefined,
+  listNotificationRecords: async () => ({ records: [], nextCursor: null }),
+  getNotificationRecord: async () => { throw new Error('Notification records are available in the Android app.') },
 }
 
 export const needleBub: NeedleBubNative = Capacitor.isNativePlatform() ? native : web

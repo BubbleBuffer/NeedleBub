@@ -12,4 +12,7 @@ class DeveloperDataSettings(context: Context) {
     var captureEnabled: Boolean
         get() = unlocked && preferences.getBoolean("capture_enabled", false)
         set(value) { preferences.edit().putBoolean("capture_enabled", value && unlocked).apply() }
+
+    @Volatile
+    var labAuthenticated: Boolean = false
 }

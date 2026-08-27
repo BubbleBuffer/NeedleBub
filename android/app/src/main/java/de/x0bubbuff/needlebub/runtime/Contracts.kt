@@ -26,4 +26,9 @@ data class RuntimeResponse(
     val durationMs: Long,
     val coldLoad: Boolean,
     val pssKb: Long,
+    val responseType: String? = null,
+    val engineSuccess: Boolean? = null,
+    val engineErrorCode: String? = null,
+    val reasoning: String? = null,
+    val callCount: Int = 0,
 ) : Parcelable

@@ -9,7 +9,11 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import androidx.activity.result.ActivityResult
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -24,6 +28,7 @@ import de.x0bubbuff.needlebub.notifications.AutomaticOtpState
 import de.x0bubbuff.needlebub.developer.DiagnosticEntry
 import de.x0bubbuff.needlebub.gateway.ErrorCodes
 import de.x0bubbuff.needlebub.otp.OtpPostprocessor
+import de.x0bubbuff.needlebub.otp.OtpOutcome
 import de.x0bubbuff.needlebub.packs.PackManifest
 import org.json.JSONArray
 import org.json.JSONObject
@@ -51,6 +56,7 @@ class NeedleBubPlugin : Plugin() {
 
     @PluginMethod
     fun status(call: PluginCall) {
+        app.packUpdates.checkIfStale()
         val selected = automation.selectedPackages
         val packInstalled = app.packStore.officialOtp() != null
         val notificationAccess = context.packageName in NotificationManagerCompat.getEnabledListenerPackages(context)
@@ -137,7 +143,7 @@ class NeedleBubPlugin : Plugin() {
                     .put("arguments", JSONObject(response.resultJson)))
                 OtpPostprocessor.process(query, calls.toString())
             } else null
-            val passed = postprocessed?.code == CHECK_CODE
+            val passed = postprocessed is OtpOutcome.Accepted && postprocessed.result.code == CHECK_CODE
             val errorCode = response.errorCode ?: if (passed) null else ErrorCodes.NO_MATCH
             call.resolve(coldCheckResult(
                 passed,
@@ -162,6 +168,7 @@ class NeedleBubPlugin : Plugin() {
                 .put("description", pack.manifest.description)
                 .put("license", pack.manifest.license)
                 .put("verified", pack.verified)
+                .put("active", app.packStore.officialOtp()?.manifest?.version == pack.manifest.version)
                 .put("surfaces", JSArray(pack.manifest.surfaces.toList()))
                 .put("outputs", JSArray(pack.manifest.outputs.keys.toList())))
         }
@@ -207,36 +214,45 @@ class NeedleBubPlugin : Plugin() {
 
     @PluginMethod
     fun catalogue(call: PluginCall) {
-        val raw = context.assets.open("catalogue.json").bufferedReader().use { it.readText() }
-        call.resolve(JSObject(raw))
+        executor.execute {
+            try {
+                val raw = de.x0bubbuff.needlebub.updates.OfficialCatalogue(context).embedded().first
+                call.resolve(JSObject(raw.toString()))
+            } catch (error: Exception) {
+                call.reject(error.message ?: "Embedded catalogue is invalid")
+            }
+        }
     }
 
     @PluginMethod
     fun installCataloguePack(call: PluginCall) {
         val id = call.getString("id") ?: return call.reject("id is required")
-        executor.execute {
-            var temporary: File? = null
-            try {
-                val catalogue = JSONObject(context.assets.open("catalogue.json").bufferedReader().use { it.readText() })
-                val entries = catalogue.getJSONArray("entries")
-                val entry = (0 until entries.length()).asSequence().map(entries::getJSONObject).firstOrNull { it.getString("id") == id }
-                    ?: error("Pack not found in official catalogue")
-                if (entry.getString("engineAbi") != PackManifest.ENGINE_ABI) error("Pack needs a different Needle engine")
-                val url = entry.getString("url")
-                requireImmutableHttpsUrl(url)
-                val expectedSize = entry.getLong("size")
-                val expectedDigest = entry.getString("sha256")
-                temporary = File(context.cacheDir, "download-${UUID.randomUUID()}.nbpack")
-                download(url, temporary, expectedSize)
-                if (!temporary.sha256().equals(expectedDigest, ignoreCase = true)) error("Downloaded pack checksum failed")
-                val pack = app.packStore.install(temporary, verified = true)
-                call.resolve(JSObject().put("id", pack.manifest.id).put("version", pack.manifest.version).put("verified", true))
-            } catch (error: Exception) {
-                call.reject(error.message ?: "Pack download failed")
-            } finally {
-                temporary?.delete()
-            }
+        if (id != de.x0bubbuff.needlebub.updates.OfficialCatalogue.OFFICIAL_OTP_ID) {
+            return call.reject("Pack not found in official catalogue")
         }
+        app.packUpdates.checkNow {
+            val installed = app.packStore.officialOtp()
+            if (installed == null) call.reject(app.packUpdates.status().lastError ?: "Pack download failed")
+            else call.resolve(JSObject().put("id", installed.manifest.id).put("version", installed.manifest.version).put("verified", true))
+        }
+    }
+
+    @PluginMethod
+    fun getPackUpdateStatus(call: PluginCall) {
+        app.packUpdates.checkIfStale()
+        call.resolve(packUpdateStatus())
+    }
+
+    @PluginMethod
+    fun setAutomaticPackUpdates(call: PluginCall) {
+        val enabled = call.getBoolean("enabled") ?: return call.reject("enabled is required")
+        app.packUpdates.setEnabled(enabled)
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun checkForPackUpdates(call: PluginCall) {
+        app.packUpdates.checkNow { call.resolve(packUpdateStatus()) }
     }
 
     @PluginMethod
@@ -271,6 +287,7 @@ class NeedleBubPlugin : Plugin() {
         val summary = app.developerDataStore.summary()
         call.resolve(JSObject()
             .put("unlocked", app.developerDataSettings.unlocked)
+            .put("labAuthenticated", app.developerDataSettings.labAuthenticated)
             .put("captureEnabled", app.developerDataSettings.captureEnabled)
             .put("recordCount", summary.count)
             .put("storedBytes", summary.storedBytes)
@@ -286,6 +303,80 @@ class NeedleBubPlugin : Plugin() {
             errorCode = null, durationMs = null, pssKb = null, coldLoad = null,
         ))
         call.resolve(JSObject().put("unlocked", true))
+    }
+
+    @PluginMethod
+    fun authenticateDeveloperLab(call: PluginCall) {
+        if (!app.developerDataSettings.unlocked) return call.reject("Developer data is locked")
+        val host = activity as? FragmentActivity ?: return call.reject("Authentication host is unavailable")
+        host.runOnUiThread {
+            if (host.isFinishing || host.isDestroyed) {
+                call.reject("Authentication host is unavailable")
+                return@runOnUiThread
+            }
+            val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL
+            val prompt = BiometricPrompt(host, ContextCompat.getMainExecutor(context), object : BiometricPrompt.AuthenticationCallback() {
+                override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    app.developerDataSettings.labAuthenticated = true
+                    call.resolve(JSObject().put("authenticated", true))
+                }
+
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    call.reject(if (errorCode == BiometricPrompt.ERROR_USER_CANCELED) "Device authentication was cancelled" else errString.toString())
+                }
+            })
+            prompt.authenticate(BiometricPrompt.PromptInfo.Builder()
+                .setTitle("Open Notification Lab")
+                .setSubtitle("View encrypted notification and model traces")
+                .setAllowedAuthenticators(authenticators)
+                .build())
+        }
+    }
+
+    @PluginMethod
+    fun closeDeveloperLab(call: PluginCall) {
+        app.developerDataSettings.labAuthenticated = false
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun listNotificationRecords(call: PluginCall) {
+        if (!app.developerDataSettings.unlocked || !app.developerDataSettings.labAuthenticated) {
+            return call.reject("Notification Lab authentication is required")
+        }
+        executor.execute {
+            val (records, nextCursor) = app.developerDataStore.captureSummaries(
+                call.getInt("limit", 30) ?: 30,
+                call.getLong("cursor"),
+                call.getString("filter"),
+            )
+            if (!app.developerDataSettings.labAuthenticated) {
+                call.reject("Notification Lab authentication expired")
+                return@execute
+            }
+            call.resolve(JSObject()
+                .put("records", JSArray(records))
+                .put("nextCursor", nextCursor ?: JSONObject.NULL))
+        }
+    }
+
+    @PluginMethod
+    fun getNotificationRecord(call: PluginCall) {
+        if (!app.developerDataSettings.unlocked || !app.developerDataSettings.labAuthenticated) {
+            return call.reject("Notification Lab authentication is required")
+        }
+        val id = call.getString("id") ?: return call.reject("id is required")
+        executor.execute {
+            val record = app.developerDataStore.capture(id)
+            if (!app.developerDataSettings.labAuthenticated) {
+                call.reject("Notification Lab authentication expired")
+            } else if (record == null) {
+                call.reject("Notification record was not found")
+            } else {
+                call.resolve(JSObject(record.toString()))
+            }
+        }
     }
 
     @PluginMethod
@@ -420,6 +511,19 @@ class NeedleBubPlugin : Plugin() {
         .put("durationMs", durationMs)
         .put("coldLoad", coldLoad)
         .put("pssKb", pssKb)
+
+    private fun packUpdateStatus(): JSObject {
+        val status = app.packUpdates.status()
+        return JSObject()
+            .put("enabled", status.enabled)
+            .put("networkPolicy", "unmetered")
+            .put("state", status.state)
+            .put("currentVersion", status.currentVersion ?: JSONObject.NULL)
+            .put("availableVersion", status.availableVersion ?: JSONObject.NULL)
+            .put("lastCheckedAt", status.lastCheckedAt ?: JSONObject.NULL)
+            .put("lastUpdatedAt", status.lastUpdatedAt ?: JSONObject.NULL)
+            .put("lastError", status.lastError ?: JSONObject.NULL)
+    }
 
     private fun packageInstalled(name: String): Boolean = try {
         context.packageManager.getApplicationInfo(name, 0)
