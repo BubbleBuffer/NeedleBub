@@ -512,7 +512,6 @@ function OtpFeatureView({ status, packs, catalogue, update, activity, busy, noti
       </div>
       <Row icon={LayoutGrid} label="Notification sources" value={sourceLabel(status)} onClick={() => navigate('feature-otp-sources')} />
       <Row icon={Bell} label="Result delivery" value={status.notificationPermission ? 'Private notifications allowed' : 'Permission needed'} onClick={() => void needleBub.openNotificationSettings()} />
-      <Row icon={Bot} label="Automation" value={status.macroDroidInstalled ? 'MacroDroid installed' : 'MacroDroid not detected'} disabled={!status.macroDroidInstalled} onClick={() => void needleBub.openMacroDroid()} />
     </section>
     {pack && <button className="danger-text" disabled={busy !== null} onClick={() => {
       if (window.confirm(`Remove ${pack.name} ${pack.version}? One-time codes will stop until it is reinstalled.`)) {
@@ -749,7 +748,11 @@ function ModelsView({ packs, busy, run }: { packs: PackInfo[]; busy: string | nu
 
 function IntegrationsView({ status }: { status: AppStatus }) {
   return <main className="screen detail-screen">
-    <Row icon={Bot} label="MacroDroid" value={status.macroDroidInstalled ? 'Installed · open automation app' : 'Not installed'} disabled={!status.macroDroidInstalled} onClick={() => void needleBub.openMacroDroid()} />
+    <section className="copy-section">
+      <h2>MacroDroid</h2>
+      <p>Run any installed external capability pack from MacroDroid.</p>
+      <Row icon={Bot} label="Open MacroDroid" value={status.macroDroidInstalled ? 'Installed' : 'Not installed'} disabled={!status.macroDroidInstalled} onClick={() => void needleBub.openMacroDroid()} />
+    </section>
     <section className="technical-block">
       <h2>Inference gateway</h2>
       <code>de.x0bubbuff.needlebub.action.INFERENCE_GATEWAY</code>

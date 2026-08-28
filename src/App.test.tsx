@@ -214,6 +214,22 @@ describe('NeedleBub capability host alpha.7', () => {
     confirm.mockRestore()
   })
 
+  it('keeps MacroDroid app-wide instead of presenting it as an OTP feature setting', async () => {
+    window.location.hash = '#/features/otp'
+    const { unmount } = render(<App />)
+
+    expect(await screen.findByText('Seven-day activity')).toBeInTheDocument()
+    expect(screen.queryByText('Automation')).not.toBeInTheDocument()
+    expect(screen.queryByText('MacroDroid installed')).not.toBeInTheDocument()
+
+    unmount()
+    window.location.hash = '#/settings/integrations'
+    render(<App />)
+
+    expect(await screen.findByText('MacroDroid')).toBeInTheDocument()
+    expect(screen.getByText('Run any installed external capability pack from MacroDroid.')).toBeInTheDocument()
+  })
+
   it('moves update policy into Downloads and allows an explicit mobile manual check', async () => {
     window.location.hash = '#/settings/downloads'
     const user = userEvent.setup()
