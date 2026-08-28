@@ -96,6 +96,12 @@
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
+        <provider
+            android:name=".developer.AdbCaptureProvider"
+            android:authorities="${applicationId}.developer"
+            android:exported="true"
+            android:grantUriPermissions="false" />
+
     </application>
 
 </manifest>

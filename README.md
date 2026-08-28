@@ -12,13 +12,15 @@ permissions and no network access of its own.
 
 ## Architecture
 
-- React 19, Vite 8, and Capacitor 8 provide a compact Home with hash-backed
-  Sources, Model, Advanced, and authenticated Developer Lab drill-ins.
+- React 19, Vite 8, and Capacitor 8 provide a capability-focused Home, compact
+  built-in feature pages, grouped Settings, and separate authenticated
+  Notification Records and Capture/Export developer pages.
 - Kotlin owns pack installation, notification selection, the Locale action,
   public Binder contracts, rate limits, and recovery.
 - The verified official OTP pack updates atomically from an Ed25519-signed
-  public catalogue. Automatic checks run over unmetered networks and retain the
-  previous verified pack for rollback.
+  public catalogue. Automatic checks default to unmetered networks, may be
+  configured to use mobile data, and retain the previous verified pack for
+  rollback. A deliberate manual check may always download over mobile.
 - `IsolatedInferenceService` is declared with `android:isolatedProcess="true"`.
 - A small JNI library memory-maps a read-only model file descriptor and links a
   checksummed ARM64 Needle archive.
@@ -59,15 +61,29 @@ and binder-death recovery remain broader private-alpha gates.
 ## Privacy boundary
 
 NeedleBub never persists or transmits notification bodies, caller input,
-inference output, extracted codes, or result JSON during normal operation.
-Tapping the Version entry in build facts seven times unlocks Developer Mode.
-The Notification Lab requires biometric or device-credential authentication
-for each foreground session. Its capture is off by default, encrypts each full
-notification/model record with an Android Keystore key, retains at most 30 days
-or 10,000 records, and exports only after device authentication into a
-password-authenticated `.nbcapture` file. Backgrounding the app clears the
-decrypted Lab state. Persistent diagnostics and ordinary Logcat output remain
-metadata-only. There is no paste/share extractor or normal-user result history.
+inference output, extracted codes, or result JSON during normal operation. It
+does retain seven rolling local-day buckets of content-free feature activity:
+outcome counts, completed inference counts, duration totals, and the last
+activity time. These summaries contain no app identity or notification content
+and can be reset from Privacy and data.
+
+Tapping the Version entry in Settings seven times unlocks Developer Mode.
+Notification Records and Capture/Export require biometric or device-credential
+authentication for each foreground session. Capture is off by default, encrypts
+each full notification/model record with an Android Keystore key, retains at
+most 30 days or 10,000 records, and exports only after device authentication
+into a password-authenticated `.nbcapture` file. Backgrounding the app clears
+the decrypted developer state. While the authenticated session remains open,
+the user can grant Android's shell UID a process-local JSONL stream for ten
+minutes:
+
+```powershell
+adb exec-out content read --uri content://de.x0bubbuff.needlebub.developer/captures > needlebub-captures.jsonl
+```
+
+The grant is revoked when the Lab closes and never writes plaintext to shared
+storage. Persistent diagnostics and ordinary Logcat output remain metadata-only.
+There is no paste/share extractor or normal-user result history.
 
 MIT licensed. Needle and the Locale protocol are covered by the notices in
 [NOTICE.md](NOTICE.md).

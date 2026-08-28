@@ -7,6 +7,8 @@ import de.x0bubbuff.needlebub.runtime.RuntimeBroker
 import de.x0bubbuff.needlebub.gateway.UidRateLimiter
 import de.x0bubbuff.needlebub.developer.DeveloperDataSettings
 import de.x0bubbuff.needlebub.developer.DeveloperDataStore
+import de.x0bubbuff.needlebub.developer.AdbCaptureAccess
+import de.x0bubbuff.needlebub.features.FeatureActivityStore
 import de.x0bubbuff.needlebub.updates.PackUpdateManager
 
 class NeedleBubApplication : Application() {
@@ -15,6 +17,8 @@ class NeedleBubApplication : Application() {
     val macroLimiter: UidRateLimiter by lazy { UidRateLimiter() }
     val developerDataSettings: DeveloperDataSettings by lazy { DeveloperDataSettings(this) }
     val developerDataStore: DeveloperDataStore by lazy { DeveloperDataStore(this) }
+    val adbCaptureAccess: AdbCaptureAccess by lazy { AdbCaptureAccess() }
+    val featureActivity: FeatureActivityStore by lazy { FeatureActivityStore(this) }
     val packUpdates: PackUpdateManager by lazy { PackUpdateManager(this, packStore, runtime) }
 
     override fun onCreate() {

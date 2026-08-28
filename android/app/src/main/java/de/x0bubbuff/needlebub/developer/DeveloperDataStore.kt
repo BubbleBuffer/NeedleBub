@@ -8,6 +8,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
+import java.io.Writer
 import java.nio.ByteBuffer
 import java.security.KeyStore
 import java.security.MessageDigest
@@ -196,6 +197,25 @@ class DeveloperDataStore(context: Context) : SQLiteOpenHelper(
             }
         }
         return CaptureEnvelope.encrypt(compressed.toByteArray(), passphrase) to summary.count
+    }
+
+    @Synchronized
+    fun writePlaintextJsonl(writer: Writer, canContinue: () -> Boolean) {
+        check(canContinue()) { "ADB capture access expired" }
+        val count = summary().count
+        writer.appendLine(JSONObject()
+            .put("type", "needlebub.capture.adb")
+            .put("formatVersion", 2)
+            .put("exportedAtEpochMs", System.currentTimeMillis())
+            .put("recordCount", count)
+            .toString())
+        readableDatabase.rawQuery("SELECT payload FROM captures ORDER BY created_at, id", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                check(canContinue()) { "ADB capture access expired" }
+                writer.appendLine(crypto.decrypt(cursor.getBlob(0)).decodeToString())
+            }
+        }
+        writer.flush()
     }
 
     @Synchronized

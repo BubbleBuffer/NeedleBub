@@ -107,14 +107,14 @@ $enableCapture = @'
   const settings=await find('button',button=>button.getAttribute('aria-label')==='Settings','Settings button');
   settings.click();
   await wait(150);
-  const buildFacts=await find('summary',element=>element.innerText.includes('Diagnostics and build facts'),'Build facts');
-  buildFacts.click();
-  await wait(150);
-  const version=await find('.diagnostic-unlock-target',()=>true,'Version entry');
-  for(let index=0;index<7;index+=1) version.click();
+  const version=await find('button',button=>button.getAttribute('aria-label')?.startsWith('Version '),'Version entry');
+  for(let index=0;index<7;index+=1){
+    version.click();
+    await wait(80);
+  }
   await wait(600);
-  const lab=await find('button',button=>button.innerText.includes('Notification Lab'),'Notification Lab');
-  lab.click();
+  const data=await find('button',button=>button.innerText.includes('Capture and export'),'Capture and export');
+  data.click();
   return location.hash;
 })()
 '@
@@ -161,13 +161,22 @@ Start-Sleep -Seconds 2
 $crashLog = (& $adb @adbTarget logcat -d -v brief AndroidRuntime:E '*:S') -join "`n"
 if ($crashLog -match 'FATAL EXCEPTION') { throw "NeedleBub crashed after notification capture.`n$crashLog" }
 if (-not (& $adb @adbTarget shell pidof $applicationId)) { throw 'NeedleBub process exited after notification capture.' }
+$activityPreferences = (& $adb @adbTarget shell run-as $applicationId cat shared_prefs/feature_activity.xml) -join "`n"
+if ($activityPreferences -notmatch 'notRun&quot;:1') {
+    throw "Content-free feature activity did not record the notification outcome.`n$activityPreferences"
+}
 
 $target = Get-WebViewTarget
 $refreshRecords = @'
 (async()=>{
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-  const all=[...document.querySelectorAll('.lab-filters button')].find(button=>button.innerText==='All');
-  if(!all) throw new Error('Lab filter was not rendered');
+  location.hash='#/developer/records';
+  for(let attempt=0;attempt<40;attempt+=1){
+    if(document.querySelector('.filter-strip')) break;
+    await wait(250);
+  }
+  const all=[...document.querySelectorAll('.filter-strip button')].find(button=>button.innerText==='All');
+  if(!all) throw new Error('Records filter was not rendered');
   all.click();
   await wait(750);
   const newest=document.querySelector('.record-row');

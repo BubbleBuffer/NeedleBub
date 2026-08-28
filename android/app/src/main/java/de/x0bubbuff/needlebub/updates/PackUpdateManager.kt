@@ -28,11 +28,16 @@ class PackUpdateManager(context: Context, private val packStore: PackStore, priv
 
     fun setEnabled(enabled: Boolean) {
         state.enabled = enabled
-        PackUpdateScheduler.sync(appContext, enabled)
+        PackUpdateScheduler.sync(appContext, enabled, state.allowMetered)
         if (!enabled) state.record("idle")
     }
 
-    fun schedule() = PackUpdateScheduler.sync(appContext, state.enabled)
+    fun setAllowMetered(allowMetered: Boolean) {
+        state.allowMetered = allowMetered
+        PackUpdateScheduler.sync(appContext, state.enabled, allowMetered)
+    }
+
+    fun schedule() = PackUpdateScheduler.sync(appContext, state.enabled, state.allowMetered)
 
     fun checkIfStale() {
         val status = status()
@@ -41,17 +46,17 @@ class PackUpdateManager(context: Context, private val packStore: PackStore, priv
         }
     }
 
-    fun checkNow(onComplete: (() -> Unit)? = null) {
+    fun checkNow(allowMetered: Boolean? = null, onComplete: (() -> Unit)? = null) {
         executor.execute {
             try {
-                performUpdate()
+                performUpdate(allowMetered ?: state.allowMetered)
             } finally {
                 onComplete?.invoke()
             }
         }
     }
 
-    private fun performUpdate() {
+    private fun performUpdate(allowMetered: Boolean) {
         state.record("checking")
         val entry = try {
             catalogue.remote().second
@@ -68,6 +73,7 @@ class PackUpdateManager(context: Context, private val packStore: PackStore, priv
             current?.manifest?.version,
             entry.version,
             appContext.getSystemService(ConnectivityManager::class.java).isActiveNetworkMetered,
+            allowMetered,
         )) {
             UpdateAction.UP_TO_DATE -> {
                 state.record("up_to_date", checked = true)

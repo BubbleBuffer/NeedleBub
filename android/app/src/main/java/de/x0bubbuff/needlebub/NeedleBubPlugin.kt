@@ -50,6 +50,7 @@ class NeedleBubPlugin : Plugin() {
     private val automation get() = AutomationSettings(context)
 
     override fun handleOnDestroy() {
+        app.adbCaptureAccess.revoke()
         executor.shutdown()
         super.handleOnDestroy()
     }
@@ -230,7 +231,7 @@ class NeedleBubPlugin : Plugin() {
         if (id != de.x0bubbuff.needlebub.updates.OfficialCatalogue.OFFICIAL_OTP_ID) {
             return call.reject("Pack not found in official catalogue")
         }
-        app.packUpdates.checkNow {
+        app.packUpdates.checkNow(allowMetered = true) {
             val installed = app.packStore.officialOtp()
             if (installed == null) call.reject(app.packUpdates.status().lastError ?: "Pack download failed")
             else call.resolve(JSObject().put("id", installed.manifest.id).put("version", installed.manifest.version).put("verified", true))
@@ -251,8 +252,16 @@ class NeedleBubPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun setPackUpdateNetworkPolicy(call: PluginCall) {
+        val allowMetered = call.getBoolean("allowMetered") ?: return call.reject("allowMetered is required")
+        app.packUpdates.setAllowMetered(allowMetered)
+        call.resolve()
+    }
+
+    @PluginMethod
     fun checkForPackUpdates(call: PluginCall) {
-        app.packUpdates.checkNow { call.resolve(packUpdateStatus()) }
+        val allowMetered = call.getBoolean("allowMetered", true) ?: true
+        app.packUpdates.checkNow(allowMetered = allowMetered) { call.resolve(packUpdateStatus()) }
     }
 
     @PluginMethod
@@ -291,7 +300,8 @@ class NeedleBubPlugin : Plugin() {
             .put("captureEnabled", app.developerDataSettings.captureEnabled)
             .put("recordCount", summary.count)
             .put("storedBytes", summary.storedBytes)
-            .put("oldestAt", summary.oldestAt ?: JSONObject.NULL))
+            .put("oldestAt", summary.oldestAt ?: JSONObject.NULL)
+            .put("adbPullExpiresAt", app.adbCaptureAccess.expiresAtEpochMs() ?: JSONObject.NULL))
     }
 
     @PluginMethod
@@ -337,6 +347,25 @@ class NeedleBubPlugin : Plugin() {
     @PluginMethod
     fun closeDeveloperLab(call: PluginCall) {
         app.developerDataSettings.labAuthenticated = false
+        app.adbCaptureAccess.revoke()
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun grantAdbCapturePull(call: PluginCall) {
+        if (!app.developerDataSettings.unlocked || !app.developerDataSettings.labAuthenticated) {
+            return call.reject("Notification Lab authentication is required")
+        }
+        app.adbCaptureAccess.grant()
+        call.resolve(JSObject().put(
+            "expiresAt",
+            app.adbCaptureAccess.expiresAtEpochMs() ?: JSONObject.NULL,
+        ))
+    }
+
+    @PluginMethod
+    fun revokeAdbCapturePull(call: PluginCall) {
+        app.adbCaptureAccess.revoke()
         call.resolve()
     }
 
@@ -476,6 +505,44 @@ class NeedleBubPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun getFeatureActivity(call: PluginCall) {
+        val featureId = call.getString("featureId") ?: return call.reject("featureId is required")
+        val days = (call.getInt("days", 7) ?: 7).coerceIn(1, 7)
+        val summary = try {
+            app.featureActivity.summary(featureId, days)
+        } catch (error: IllegalArgumentException) {
+            return call.reject(error.message ?: "Feature ID is invalid")
+        }
+        call.resolve(JSObject()
+            .put("featureId", summary.featureId)
+            .put("days", summary.days)
+            .put("todayOtp", summary.todayOtp)
+            .put("todayRejected", summary.todayRejected)
+            .put("todayErrors", summary.todayErrors)
+            .put("todaySuppressed", summary.todaySuppressed)
+            .put("todayNotRun", summary.todayNotRun)
+            .put("totalOtp", summary.totalOtp)
+            .put("totalRejected", summary.totalRejected)
+            .put("totalErrors", summary.totalErrors)
+            .put("totalSuppressed", summary.totalSuppressed)
+            .put("totalNotRun", summary.totalNotRun)
+            .put("completedInferenceCount", summary.completedInferenceCount)
+            .put("averageDurationMs", summary.averageDurationMs ?: JSONObject.NULL)
+            .put("lastActivityAt", summary.lastActivityAt ?: JSONObject.NULL))
+    }
+
+    @PluginMethod
+    fun resetFeatureActivity(call: PluginCall) {
+        val featureId = call.getString("featureId")
+        try {
+            app.featureActivity.reset(featureId)
+        } catch (error: IllegalArgumentException) {
+            return call.reject(error.message ?: "Feature ID is invalid")
+        }
+        call.resolve()
+    }
+
+    @PluginMethod
     fun diagnostics(call: PluginCall) {
         val macroVersion = try {
             context.packageManager.getPackageInfo("com.arlosoft.macrodroid", 0).versionName
@@ -516,7 +583,7 @@ class NeedleBubPlugin : Plugin() {
         val status = app.packUpdates.status()
         return JSObject()
             .put("enabled", status.enabled)
-            .put("networkPolicy", "unmetered")
+            .put("networkPolicy", if (status.allowMetered) "any" else "unmetered")
             .put("state", status.state)
             .put("currentVersion", status.currentVersion ?: JSONObject.NULL)
             .put("availableVersion", status.availableVersion ?: JSONObject.NULL)

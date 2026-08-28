@@ -77,24 +77,24 @@ class NeedleNotificationListenerService : NotificationListenerService() {
             status = policyDecision, errorCode = null, durationMs = null, pssKb = null, coldLoad = null,
         ))
         if (!settings.enabled) {
-            captureId?.let { app.developerDataStore.attachOutcome(it, outcome("NOT_RUN", "AUTOMATION_PAUSED")) }
+            finish(app, captureId, outcome("NOT_RUN", "AUTOMATION_PAUSED"))
             return
         }
         if (!sourceAccepted) {
-            captureId?.let { app.developerDataStore.attachOutcome(it, outcome("NOT_RUN", "SOURCE_NOT_SELECTED")) }
+            finish(app, captureId, outcome("NOT_RUN", "SOURCE_NOT_SELECTED"))
             return
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            captureId?.let { app.developerDataStore.attachOutcome(it, outcome("NOT_RUN", "NOTIFICATION_PERMISSION_MISSING")) }
+            finish(app, captureId, outcome("NOT_RUN", "NOTIFICATION_PERMISSION_MISSING"))
             return
         }
         if (!mayInspect || policyDecision != NotificationInferencePolicy.INFER) {
-            captureId?.let { app.developerDataStore.attachOutcome(it, outcome("NOT_RUN", "BLANK_NOTIFICATION")) }
+            finish(app, captureId, outcome("NOT_RUN", "BLANK_NOTIFICATION"))
             return
         }
         val pack = app.packStore.officialOtp()
         if (pack == null) {
-            captureId?.let { app.developerDataStore.attachOutcome(it, outcome("NOT_RUN", "PACK_NOT_INSTALLED")) }
+            finish(app, captureId, outcome("NOT_RUN", "PACK_NOT_INSTALLED"))
             return
         }
         val sender = title.ifBlank { appLabel }
@@ -132,24 +132,24 @@ class NeedleNotificationListenerService : NotificationListenerService() {
                 ))
             }
             if (!AutomaticOtpState.mayPublishResult(settings.enabled)) {
-                captureId?.let { app.developerDataStore.attachOutcome(it, outcome("SUPPRESSED", "RESULT_SUPPRESSED_PAUSED")) }
+                finish(app, captureId, outcome("SUPPRESSED", "RESULT_SUPPRESSED_PAUSED"), response.durationMs)
                 return@infer
             }
             if (response.status == "NO_MATCH") {
-                captureId?.let { app.developerDataStore.attachOutcome(it, outcome("REJECTED", "MODEL_NO_MATCH")) }
+                finish(app, captureId, outcome("REJECTED", "MODEL_NO_MATCH"), response.durationMs)
                 return@infer
             }
             if (response.status != "OK" || response.errorCode != null || response.engineSuccess == false) {
-                captureId?.let { app.developerDataStore.attachOutcome(it, outcome("ERROR", "MODEL_RUNTIME_ERROR")) }
+                finish(app, captureId, outcome("ERROR", "MODEL_RUNTIME_ERROR"), response.durationMs)
                 if (response.errorCode == ErrorCodes.PACK_INVALID) app.packStore.rollbackOfficial()
                 return@infer
             }
             if (response.callCount != 1) {
-                captureId?.let { app.developerDataStore.attachOutcome(it, outcome("REJECTED", "MODEL_MULTIPLE_CALLS")) }
+                finish(app, captureId, outcome("REJECTED", "MODEL_MULTIPLE_CALLS"), response.durationMs)
                 return@infer
             }
             if (response.toolName != "extract_otp") {
-                captureId?.let { app.developerDataStore.attachOutcome(it, outcome("REJECTED", "MODEL_WRONG_TOOL")) }
+                finish(app, captureId, outcome("REJECTED", "MODEL_WRONG_TOOL"), response.durationMs)
                 return@infer
             }
             val arguments = try {
@@ -158,30 +158,40 @@ class NeedleNotificationListenerService : NotificationListenerService() {
                 null
             }
             if (arguments == null) {
-                captureId?.let { app.developerDataStore.attachOutcome(it, outcome("REJECTED", "INVALID_ARGUMENTS")) }
+                finish(app, captureId, outcome("REJECTED", "INVALID_ARGUMENTS"), response.durationMs)
                 return@infer
             }
             val calls = JSONArray().put(JSONObject().put("name", response.toolName).put("arguments", arguments))
             when (val processed = OtpPostprocessor.process(query, calls.toString())) {
                 is OtpOutcome.Accepted -> {
-                    captureId?.let { id ->
-                        app.developerDataStore.attachOutcome(id, outcome("OTP", "OTP_ACCEPTED")
-                            .put("code", processed.result.code)
-                            .put("source", processed.result.source ?: JSONObject.NULL)
-                            .put("sourceDisposition", processed.sourceDisposition.name.lowercase()))
-                    }
+                    finish(app, captureId, outcome("OTP", "OTP_ACCEPTED")
+                        .put("code", processed.result.code)
+                        .put("source", processed.result.source ?: JSONObject.NULL)
+                        .put("sourceDisposition", processed.sourceDisposition.name.lowercase()), response.durationMs)
                     OtpResultNotification.show(this, processed.result.code, processed.result.source ?: sender)
                 }
                 is OtpOutcome.Rejected -> {
-                    captureId?.let {
-                        app.developerDataStore.attachOutcome(it, outcome("REJECTED", processed.reason.name))
-                    }
+                    finish(app, captureId, outcome("REJECTED", processed.reason.name), response.durationMs)
                 }
             }
         }
         if (!accepted) {
-            captureId?.let { app.developerDataStore.attachOutcome(it, outcome("ERROR", "MODEL_RUNTIME_ERROR")) }
+            finish(app, captureId, outcome("ERROR", "MODEL_RUNTIME_ERROR"))
         }
+    }
+
+    private fun finish(
+        app: NeedleBubApplication,
+        captureId: String?,
+        finalOutcome: JSONObject,
+        durationMs: Long? = null,
+    ) {
+        captureId?.let { app.developerDataStore.attachOutcome(it, finalOutcome) }
+        app.featureActivity.record(
+            featureId = OTP_FEATURE_ID,
+            decision = finalOutcome.getString("decision"),
+            durationMs = durationMs,
+        )
     }
 
     private fun outcome(decision: String, reasonCode: String) = JSONObject()
@@ -193,6 +203,7 @@ class NeedleNotificationListenerService : NotificationListenerService() {
         const val NOTIFICATION_TIMEOUT_MS = 5_000L
         const val MAX_TITLE_CHARS = 512
         const val MAX_BODY_CHARS = 8_192
+        const val OTP_FEATURE_ID = "otp"
 
         fun sha256(value: String): String = MessageDigest.getInstance("SHA-256")
             .digest(value.encodeToByteArray()).joinToString("") { "%02x".format(it) }

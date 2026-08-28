@@ -4,6 +4,7 @@ import android.content.Context
 
 data class PackUpdateStatus(
     val enabled: Boolean,
+    val allowMetered: Boolean,
     val state: String,
     val currentVersion: String?,
     val availableVersion: String?,
@@ -19,8 +20,13 @@ class PackUpdateState(context: Context) {
         get() = preferences.getBoolean("enabled", true)
         set(value) { preferences.edit().putBoolean("enabled", value).apply() }
 
+    var allowMetered: Boolean
+        get() = preferences.getBoolean("allow_metered", false)
+        set(value) { preferences.edit().putBoolean("allow_metered", value).apply() }
+
     fun read(currentVersion: String?): PackUpdateStatus = PackUpdateStatus(
         enabled = enabled,
+        allowMetered = allowMetered,
         state = preferences.getString("state", "idle") ?: "idle",
         currentVersion = currentVersion,
         availableVersion = preferences.getString("available_version", null),

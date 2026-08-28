@@ -6,9 +6,10 @@ export type CatalogueEntry = { id: string; version: string; name: string; url: s
 export type NotificationApp = { packageName: string; label: string; selected: boolean }
 export type DiagnosticInfo = Record<string, string | number | null>
 export type ColdModelCheck = { passed: boolean; errorCode: string | null; durationMs: number; coldLoad: boolean; pssKb: number }
-export type DeveloperDataStatus = { unlocked: boolean; labAuthenticated: boolean; captureEnabled: boolean; recordCount: number; storedBytes: number; oldestAt: number | null }
+export type DeveloperDataStatus = { unlocked: boolean; labAuthenticated: boolean; captureEnabled: boolean; recordCount: number; storedBytes: number; oldestAt: number | null; adbPullExpiresAt: number | null }
+export type FeatureActivitySummary = { featureId: string; days: number; todayOtp: number; todayRejected: number; todayErrors: number; todaySuppressed: number; todayNotRun: number; totalOtp: number; totalRejected: number; totalErrors: number; totalSuppressed: number; totalNotRun: number; completedInferenceCount: number; averageDurationMs: number | null; lastActivityAt: number | null }
 export type PersistentDiagnostic = { id: number; createdAt: number; packageName: string | null; category: string | null; stage: string; pack: string | null; status: string; errorCode: string | null; durationMs: number | null; pssKb: number | null; coldLoad: boolean | null }
-export type PackUpdateStatus = { enabled: boolean; networkPolicy: 'unmetered'; state: string; currentVersion: string | null; availableVersion: string | null; lastCheckedAt: number | null; lastUpdatedAt: number | null; lastError: string | null }
+export type PackUpdateStatus = { enabled: boolean; networkPolicy: 'unmetered' | 'any'; state: string; currentVersion: string | null; availableVersion: string | null; lastCheckedAt: number | null; lastUpdatedAt: number | null; lastError: string | null }
 export type NotificationRecordSummary = { id: string; capturedAt: number; appLabel: string; title: string; decision: string; reasonCode: string }
 export type NotificationRecord = {
   id: string
@@ -49,11 +50,16 @@ interface NeedleBubNative {
   clearPersistentDiagnostics(): Promise<{ removed: number }>
   getPackUpdateStatus(): Promise<PackUpdateStatus>
   setAutomaticPackUpdates(options: { enabled: boolean }): Promise<void>
-  checkForPackUpdates(): Promise<PackUpdateStatus>
+  setPackUpdateNetworkPolicy(options: { allowMetered: boolean }): Promise<void>
+  checkForPackUpdates(options?: { allowMetered?: boolean }): Promise<PackUpdateStatus>
   authenticateDeveloperLab(): Promise<{ authenticated: boolean }>
+  grantAdbCapturePull(): Promise<{ expiresAt: number }>
+  revokeAdbCapturePull(): Promise<void>
   closeDeveloperLab(): Promise<void>
   listNotificationRecords(options?: { cursor?: number; limit?: number; filter?: string }): Promise<{ records: NotificationRecordSummary[]; nextCursor: number | null }>
   getNotificationRecord(options: { id: string }): Promise<NotificationRecord>
+  getFeatureActivity(options: { featureId: string; days?: number }): Promise<FeatureActivitySummary>
+  resetFeatureActivity(options?: { featureId?: string }): Promise<void>
 }
 
 const native = registerPlugin<NeedleBubNative>('NeedleBub')
@@ -74,7 +80,7 @@ const web: NeedleBubNative = {
   listNotificationApps: async () => ({ apps: [] }),
   saveNotificationApps: async () => undefined,
   diagnostics: async () => ({ platform: 'web preview', privacy: 'Inputs and results are memory-only' }),
-  developerDataStatus: async () => ({ unlocked: false, labAuthenticated: false, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null }),
+  developerDataStatus: async () => ({ unlocked: false, labAuthenticated: false, captureEnabled: false, recordCount: 0, storedBytes: 0, oldestAt: null, adbPullExpiresAt: null }),
   unlockDeveloperData: async () => ({ unlocked: true }),
   setNotificationCaptureEnabled: async () => undefined,
   exportNotificationCapture: async () => { throw new Error('Capture export is available in the Android app.') },
@@ -83,11 +89,16 @@ const web: NeedleBubNative = {
   clearPersistentDiagnostics: async () => ({ removed: 0 }),
   getPackUpdateStatus: async () => ({ enabled: true, networkPolicy: 'unmetered', state: 'idle', currentVersion: null, availableVersion: null, lastCheckedAt: null, lastUpdatedAt: null, lastError: null }),
   setAutomaticPackUpdates: async () => undefined,
+  setPackUpdateNetworkPolicy: async () => undefined,
   checkForPackUpdates: async () => web.getPackUpdateStatus(),
   authenticateDeveloperLab: async () => ({ authenticated: true }),
+  grantAdbCapturePull: async () => ({ expiresAt: Date.now() + 10 * 60 * 1000 }),
+  revokeAdbCapturePull: async () => undefined,
   closeDeveloperLab: async () => undefined,
   listNotificationRecords: async () => ({ records: [], nextCursor: null }),
   getNotificationRecord: async () => { throw new Error('Notification records are available in the Android app.') },
+  getFeatureActivity: async ({ featureId, days = 7 }) => ({ featureId, days, todayOtp: 0, todayRejected: 0, todayErrors: 0, todaySuppressed: 0, todayNotRun: 0, totalOtp: 0, totalRejected: 0, totalErrors: 0, totalSuppressed: 0, totalNotRun: 0, completedInferenceCount: 0, averageDurationMs: null, lastActivityAt: null }),
+  resetFeatureActivity: async () => undefined,
 }
 
 export const needleBub: NeedleBubNative = Capacitor.isNativePlatform() ? native : web
