@@ -11,7 +11,7 @@ import de.x0bubbuff.needlebub.R
 object OtpResultNotification {
     const val CHANNEL_ID = "otp_results"
     const val NOTIFICATION_ID = 0x4e42
-    const val EXTRA_CODE = "de.x0bubbuff.needlebub.extra.OTP_CODE"
+    const val EXTRA_CODE = "de.bubblebuffer.needlebub.extra.OTP_CODE"
 
     fun show(context: Context, code: String, source: String) {
         val manager = context.getSystemService(NotificationManager::class.java)

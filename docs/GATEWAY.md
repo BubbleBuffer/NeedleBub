@@ -1,7 +1,7 @@
 # Android inference gateway
 
 Bind explicitly to the exported service action
-`de.x0bubbuff.needlebub.action.INFERENCE_GATEWAY`. The AIDL sources under
+`de.bubblebuffer.needlebub.action.INFERENCE_GATEWAY`. The AIDL sources under
 `android/app/src/main/aidl` are the public contract.
 
 `IInferenceGateway` exposes `listCapabilities()`, asynchronous

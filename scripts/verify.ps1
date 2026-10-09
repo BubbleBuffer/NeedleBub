@@ -40,7 +40,7 @@ try {
 
     $aapt = Join-Path $env:ANDROID_HOME 'build-tools\36.0.0\aapt.exe'
     $badging = (& $aapt dump badging $apk) -join "`n"
-    if ($badging -notmatch "package: name='de.x0bubbuff.needlebub'") { throw 'APK package name is wrong.' }
+    if ($badging -notmatch "package: name='de.bubblebuffer.needlebub'") { throw 'APK package name is wrong.' }
     if ($badging -notmatch "sdkVersion:'31'") { throw 'APK minSdk is wrong.' }
     if ($badging -notmatch "targetSdkVersion:'36'") { throw 'APK targetSdk is wrong.' }
     if ($badging -notmatch "native-code: 'arm64-v8a'") { throw 'APK is not ARM64-only.' }

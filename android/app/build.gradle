@@ -4,6 +4,10 @@ apply plugin: 'kotlin-parcelize'
 
 def emulatorRuntimeStub = providers.gradleProperty('needlebubEmulatorRuntimeStub').orNull == 'true'
 
+// versionCode rises on every build (minutes since epoch) unless -PversionCode is given.
+def buildMinute = System.currentTimeMillis().intdiv(60000L)
+def versionCodeOverride = providers.gradleProperty('versionCode').orNull
+
 android {
     namespace = "de.x0bubbuff.needlebub"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +20,10 @@ android {
         jvmTarget = '21'
     }
     defaultConfig {
-        applicationId "de.x0bubbuff.needlebub"
+        applicationId "de.bubblebuffer.needlebub"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 7
+        versionCode Integer.parseInt((versionCodeOverride ?: buildMinute).toString())
         versionName "0.1.0-alpha.7"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         ndk {

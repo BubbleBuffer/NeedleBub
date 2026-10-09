@@ -2,8 +2,8 @@
 <resources>
     <string name="app_name">NeedleBub</string>
     <string name="title_activity_main">NeedleBub</string>
-    <string name="package_name">de.x0bubbuff.needlebub</string>
-    <string name="custom_url_scheme">de.x0bubbuff.needlebub</string>
+    <string name="package_name">de.bubblebuffer.needlebub</string>
+    <string name="custom_url_scheme">de.bubblebuffer.needlebub</string>
     <string name="otp_channel_name">Private OTP results</string>
     <string name="otp_channel_description">Short-lived OTP results extracted locally by NeedleBub.</string>
     <string name="otp_ready_title">Code ready</string>

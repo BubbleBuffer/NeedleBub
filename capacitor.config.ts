@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli'
 
 const config: CapacitorConfig = {
-  appId: 'de.x0bubbuff.needlebub',
+  appId: 'de.bubblebuffer.needlebub',
   appName: 'NeedleBub',
   webDir: 'dist/android',
   android: {

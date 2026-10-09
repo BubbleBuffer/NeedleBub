@@ -669,7 +669,7 @@ function RuntimeView({ diagnostics }: { diagnostics: DiagnosticInfo | null }) {
       <div><dt>Execution</dt><dd>On device</dd></div>
       <div><dt>Idle release</dt><dd>5 seconds</dd></div>
       <div><dt>Engine ABI</dt><dd><code>{String(diagnostics?.engineAbi ?? 'Reading…')}</code></dd></div>
-      <div><dt>Gateway</dt><dd><code>de.x0bubbuff.needlebub.action.INFERENCE_GATEWAY</code></dd></div>
+      <div><dt>Gateway</dt><dd><code>de.bubblebuffer.needlebub.action.INFERENCE_GATEWAY</code></dd></div>
     </dl>
   </main>
 }
@@ -755,7 +755,7 @@ function IntegrationsView({ status }: { status: AppStatus }) {
     </section>
     <section className="technical-block">
       <h2>Inference gateway</h2>
-      <code>de.x0bubbuff.needlebub.action.INFERENCE_GATEWAY</code>
+      <code>de.bubblebuffer.needlebub.action.INFERENCE_GATEWAY</code>
       <p>Installed external packs can process caller-supplied text through the bounded public Binder gateway.</p>
     </section>
   </main>
@@ -923,7 +923,7 @@ function DataControlsView({
     <section className="technical-block">
       <h2>Temporary ADB access</h2>
       <p>Streams decrypted JSONL only to Android’s shell user for ten minutes or until this authenticated session closes.</p>
-      <code>adb exec-out content read --uri content://de.x0bubbuff.needlebub.developer/captures &gt; needlebub-captures.jsonl</code>
+      <code>adb exec-out content read --uri content://de.bubblebuffer.needlebub.developer/captures &gt; needlebub-captures.jsonl</code>
       {developer.adbPullExpiresAt ? <>
         <p className="check-result check-result--passed" role="status">ADB pull allowed until {new Date(developer.adbPullExpiresAt).toLocaleTimeString()}.</p>
         <button className="secondary-action" disabled={busy} onClick={() => void (async () => {

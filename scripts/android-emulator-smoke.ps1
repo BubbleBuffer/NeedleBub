@@ -9,7 +9,7 @@ $adb = Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe'
 $gradle = Join-Path $repositoryRoot 'android\gradlew.bat'
 $npmCommand = (Get-Command npm.cmd -ErrorAction Stop).Source
 $apk = Join-Path $repositoryRoot 'android\app\build\outputs\apk\debug\app-debug.apk'
-$applicationId = 'de.x0bubbuff.needlebub'
+$applicationId = 'de.bubblebuffer.needlebub'
 $listener = "$applicationId/de.x0bubbuff.needlebub.notifications.NeedleNotificationListenerService"
 
 $devices = & $adb devices
