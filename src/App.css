@@ -228,7 +228,7 @@
 .requirement-list li > span:first-child { width: 18px; height: 18px; border: 1px solid var(--thread-strong); display: grid; place-items: center; }
 .requirement-list li svg { width: 14px; height: 14px; }
 .requirement-list li small { color: var(--muted); }
-.requirement-list li.complete > span:first-child { color: #f3efe7; background: var(--moss); }
+.requirement-list li.complete > span:first-child { color: #f2ebdd; background: var(--moss); }
 
 .activity-grid {
   display: grid;
@@ -337,7 +337,7 @@
   border: 1px solid var(--thread-strong);
   border-radius: 7px 11px 6px 9px;
   background: var(--duvet);
-  color: #f3efe7;
+  color: #f2ebdd;
 }
 
 .evidence-list, .trace-list {
