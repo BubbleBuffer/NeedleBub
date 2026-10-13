@@ -6,6 +6,7 @@
 <g id="background" data-name="Background" data-icon-layer="background">
 <rect id="tile" data-name="Ivory tile" x="0" y="0" width="1280" height="1280" fill="#F2EBDD"/>
 </g>
+<g id="safe-fit" data-name="Safe-circle fit" transform="translate(640 640) scale(0.9856) translate(-624 -639)">
 <g id="head" data-name="Faceted head" data-part="head/faceted">
 <path id="shell" data-name="Milk face" d="M308.35  465.45L412.65  351.67H441.1L545.39  455.97L649.69  351.67H678.14L782.43  465.45V674.05L687.62  825.75H384.21L308.35  749.9Z" fill="#FFFAF1"/>
 <path id="lower-facet" data-name="Quiet lower facet" d="M308.35  693.01L393.69  768.86H725.54L687.62  825.75H384.21L308.35  749.9Z" fill="#E4DCCD"/>
@@ -31,5 +32,6 @@
 <path id="needle-body" data-name="Needle with rounded tip" d="M616.74  878.27L798.1  599.37Q826.09  559.67  860.79  581.13Q893.26  602.58  861.91  637.98L666  908.31Q650.33  931.91  625.7  916.9Q601.06  902.94  616.74  878.27Z" fill="#282A2F"/>
 <path id="needle-eye" data-name="Needle eye" d="M830.93  611.08L809.21  641.5" fill="none" stroke="#FFFAF1" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
 <path id="thread" data-name="Apricot thread" d="M830.89  628.56C948.44  666.1  993.22  762.65  937.24  837.74C892.46  902.1  802.9  880.66  825.3  816.29" fill="none" stroke="#DE945F" stroke-width="41.48" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
 </g>
 </svg>
