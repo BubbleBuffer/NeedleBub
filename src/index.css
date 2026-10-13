@@ -5,11 +5,11 @@
 :root {
   font-family: 'Atkinson Hyperlegible Next Variable', sans-serif;
   color: #282a2f;
-  background: #f3efe7;
+  background: #f2ebdd;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   color-scheme: light;
-  --cloth: #f3efe7;
+  --cloth: #f2ebdd;
   --raised: #fffaf1;
   --muted-cloth: #dcd4c8;
   --ink: #282a2f;
@@ -30,7 +30,7 @@
   --cloth: #2f3138;
   --raised: #30333a;
   --muted-cloth: #3b3e45;
-  --ink: #f3efe7;
+  --ink: #f2ebdd;
   --muted: #c6baac;
   --thread: #575b64;
   --thread-strong: #999da6;
@@ -42,7 +42,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --cloth: #2f3138; --raised: #30333a; --muted-cloth: #3b3e45; --ink: #f3efe7;
+    --cloth: #2f3138; --raised: #30333a; --muted-cloth: #3b3e45; --ink: #f2ebdd;
     --muted: #c6baac; --thread: #575b64; --thread-strong: #999da6; --apricot: #f0a064;
     --apricot-text: #ffd9bd; --danger: #f1b7b0;
   }
