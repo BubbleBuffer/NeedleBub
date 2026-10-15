@@ -23,7 +23,7 @@ class RuntimeContractsTest {
             callCount = 1,
         )
 
-        assertTrue(response.coldLoad)
+        assertTrue(response.coldLoad == true)
         assertEquals(60_058L, response.pssKb)
         assertEquals("call", response.responseType)
         assertEquals("The selected one-time authentication code is 739241.", response.reasoning)

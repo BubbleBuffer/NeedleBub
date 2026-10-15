@@ -77,6 +77,17 @@ Java_de_x0bubbuff_needlebub_runtime_NeedleNative_complete(
 }
 
 extern "C" JNIEXPORT void JNICALL
+Java_de_x0bubbuff_needlebub_runtime_NeedleNative_rewind(
+    JNIEnv*, jobject) {
+    std::lock_guard<std::mutex> lock(runtime_mutex);
+    // Rewind conversation state only. The mapped model, the tools and the loaded pack
+    // stay resident so the next independent request does not pay for a cold load.
+    if (runtime_initialized) {
+        needle_reset();
+    }
+}
+
+extern "C" JNIEXPORT void JNICALL
 Java_de_x0bubbuff_needlebub_runtime_NeedleNative_reset(
     JNIEnv*, jobject) {
     std::lock_guard<std::mutex> lock(runtime_mutex);

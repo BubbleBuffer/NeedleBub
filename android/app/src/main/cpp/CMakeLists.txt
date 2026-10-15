@@ -16,6 +16,10 @@ endif()
 add_library(needlebub_runtime SHARED needle_jni.cpp)
 target_include_directories(needlebub_runtime PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/vendor/needle")
 target_compile_options(needlebub_runtime PRIVATE -Wall -Wextra -Werror)
+# NDK r23 does not default to the alignment required by 16 KB Android devices.
+target_link_options(needlebub_runtime PRIVATE
+    "-Wl,-z,max-page-size=16384"
+    "-Wl,-z,common-page-size=16384")
 
 find_library(android_log log)
 find_library(android_lib android)

@@ -13,6 +13,18 @@ object ErrorCodes {
     const val RATE_LIMITED = "RATE_LIMITED"
     const val TIMEOUT = "TIMEOUT"
     const val RUNTIME_CRASH = "RUNTIME_CRASH"
+
+    /** The caller cancelled the request before a result was delivered. */
+    const val CANCELLED = "CANCELLED"
+
+    /** The request waited longer than its own budget for a runtime slot. */
+    const val QUEUE_EXPIRED = "QUEUE_EXPIRED"
+
+    /** The isolated service could not be bound within the bind deadline. */
+    const val BIND_FAILED = "BIND_FAILED"
+
+    /** The engine returned a limit capped or structurally incomplete call envelope. */
+    const val OUTPUT_TRUNCATED = "OUTPUT_TRUNCATED"
 }
 
 @Parcelize

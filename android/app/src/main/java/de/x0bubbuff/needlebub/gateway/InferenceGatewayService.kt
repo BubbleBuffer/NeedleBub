@@ -7,6 +7,7 @@ import android.os.IBinder
 import android.util.Log
 import de.x0bubbuff.needlebub.NeedleBubApplication
 import de.x0bubbuff.needlebub.packs.PackStore
+import de.x0bubbuff.needlebub.runtime.RuntimeAdmission
 import de.x0bubbuff.needlebub.runtime.RuntimeBroker
 import java.util.concurrent.ConcurrentHashMap
 
@@ -85,7 +86,7 @@ class InferenceGatewayService : Service() {
                     Log.i(TAG, "pack=${pack.manifest.id}@${pack.manifest.version} status=${response.status} error=${response.errorCode ?: "none"} durationMs=${response.durationMs}")
                     deliver(callback, response)
                 }
-                if (!accepted) {
+                if (accepted == RuntimeAdmission.QUEUE_FULL) {
                     requestOwners.remove(internalId)
                     limiter.finish(uid)
                     deliver(callback, errorResponse(request, ErrorCodes.BUSY))
