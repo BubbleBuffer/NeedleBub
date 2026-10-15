@@ -1,0 +1,50 @@
+{
+  "design": "A - Open expression",
+  "selected": "2026-09-24",
+  "assets": [
+    {
+      "file": "activity.svg",
+      "sha256": "4f38837cc0120f27c2368c66340de011b7c81250763365043484d277cd9d87c7"
+    },
+    {
+      "file": "face-attention-32.svg",
+      "sha256": "08ec1894a76adec72ce8805bc1fb8a0839fa24227180d7961cd52fcff327f45c"
+    },
+    {
+      "file": "face-attention-96.svg",
+      "sha256": "16054c0439e6cd8b5ca6f0208fb918b469675776f05d6533c10cf3231cae0143"
+    },
+    {
+      "file": "face-paused-32.svg",
+      "sha256": "90387a436590a11942a244ea10da0c4bc5defdaaf10b96803023ef1a6c33b020"
+    },
+    {
+      "file": "face-paused-96.svg",
+      "sha256": "f081477a01f75148bfac70c479f28ad5678f87b29a49b09678b7b3af440da4ec"
+    },
+    {
+      "file": "face-ready-32.svg",
+      "sha256": "6b5c0d5623621e072118464e9c0c0d4c8407052cef9bef2cac21e87fea1c1bca"
+    },
+    {
+      "file": "face-ready-96.svg",
+      "sha256": "e5bc12b3309cbe52982fc2f46e86223c7e34092a729cea44895b9104d3ff9fad"
+    },
+    {
+      "file": "pause.svg",
+      "sha256": "4935293fd81a8bd58619140b423b60be303ddf48ed3a5eb77b3d8fc391533dce"
+    },
+    {
+      "file": "reconnect.svg",
+      "sha256": "7d963ac94eee78b496f341e3fc1782c5b0d901d748ef64653956b5f89e3ddf68"
+    },
+    {
+      "file": "resume.svg",
+      "sha256": "d70285d36798750330d46b4ff0797063733835cbf7b5c9a3c08aa32c41538bfe"
+    },
+    {
+      "file": "sources.svg",
+      "sha256": "fbd4fdc19a737703a4fbe0dd7b0760729590f4fe287e39c885445ca5a14abe77"
+    }
+  ]
+}

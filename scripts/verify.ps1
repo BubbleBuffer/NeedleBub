@@ -10,6 +10,8 @@ if (-not $env:ANDROID_HOME) {
 
 Push-Location $repositoryRoot
 try {
+    & python -m unittest discover -s scripts -p test_pull_captures.py
+    if ($LASTEXITCODE -ne 0) { throw 'Capture pull validation tests failed.' }
     & npm.cmd test -- --maxWorkers=1
     if ($LASTEXITCODE -ne 0) { throw 'Web tests failed.' }
     & npm.cmd run typecheck
@@ -33,6 +35,9 @@ try {
 
     $apk = Join-Path $repositoryRoot 'android\app\build\outputs\apk\release\app-release.apk'
     if (-not (Test-Path -LiteralPath $apk)) { throw 'Release APK is missing.' }
+    $apksigner = Join-Path $env:ANDROID_HOME 'build-tools\36.0.0\apksigner.bat'
+    & $apksigner verify $apk
+    if ($LASTEXITCODE -ne 0) { throw 'Release APK signature verification failed.' }
     $jar = Join-Path $env:JAVA_HOME 'bin\jar.exe'
     $entries = & $jar tf $apk
     $forbiddenEntries = $entries | Where-Object { $_ -match '\.(?:cact|pkl|parquet|jsonl|csv|safetensors|ckpt)$' }
@@ -47,7 +52,7 @@ try {
 
     $artifactDirectory = Join-Path $repositoryRoot 'artifacts'
     New-Item -ItemType Directory -Force -Path $artifactDirectory | Out-Null
-    Copy-Item -LiteralPath $apk -Destination (Join-Path $artifactDirectory 'NeedleBub-0.1.0-alpha.7-arm64.apk') -Force
+    Copy-Item -LiteralPath $apk -Destination (Join-Path $artifactDirectory 'NeedleBub-0.1.0-beta.2-arm64.apk') -Force
     Write-Output 'NeedleBub verification completed.'
 } finally {
     Pop-Location

@@ -49,8 +49,8 @@
 }
 
 * { box-sizing: border-box; }
-html { min-width: 320px; background: var(--cloth); }
-body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--cloth); color: var(--ink); }
+html { background: var(--cloth); }
+body { margin: 0; min-height: 100vh; background: var(--cloth); color: var(--ink); }
 button, input, select { font: inherit; }
 button { color: inherit; }
 button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }

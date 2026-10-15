@@ -1,7 +1,7 @@
 {
   "name": "needlebub",
   "private": true,
-  "version": "0.1.0-alpha.7",
+  "version": "0.1.0-beta.3",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,7 @@
     "build:web": "tsc -b && vite build --mode production",
     "build:android-ui": "tsc -b && vite build --mode android",
     "android:sync": "cap sync android",
-    "android:prepare": "npm run build:android-ui && npm run android:sync",
+    "android:prepare": "npm run icon:build && npm run build:android-ui && npm run android:sync",
     "android:build": "npm run android:prepare && cd android && gradlew.bat assembleRelease",
     "pack:otp": "node scripts/build-otp-pack.mjs",
     "test": "vitest run",
@@ -19,7 +19,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc -b",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "icon:build": "node scripts/build-icon.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.2",
@@ -45,6 +46,7 @@
     "archiver": "^8.0.0",
     "jsdom": "^28.1.0",
     "oxlint": "^1.79.0",
+    "sharp": "^0.35.4",
     "typescript": "~6.0.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.0"

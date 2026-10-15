@@ -11,6 +11,7 @@ const mockNeedleBub = vi.hoisted(() => ({
   openNotificationSettings: vi.fn(),
   openMacroDroid: vi.fn(),
   setAutomaticOtpEnabled: vi.fn(),
+  setAutoCopyEnabled: vi.fn(),
   runColdModelCheck: vi.fn(),
   listPacks: vi.fn(),
   removePack: vi.fn(),
@@ -51,6 +52,8 @@ const activeStatus = {
   selectedAppCount: 0,
   automaticOtpConfigured: true,
   automaticOtpEnabled: true,
+  autoCopyEnabled: false,
+  colorScheme: 'light',
   macroDroidInstalled: true,
 }
 
@@ -73,11 +76,15 @@ const activity = {
   todayOtp: 1,
   todayRejected: 37,
   todayErrors: 0,
+  todaySkipped: 3,
+  todayBackpressure: 2,
   todaySuppressed: 0,
   todayNotRun: 0,
   totalOtp: 4,
   totalRejected: 82,
   totalErrors: 0,
+  totalSkipped: 11,
+  totalBackpressure: 4,
   totalSuppressed: 0,
   totalNotRun: 3,
   completedInferenceCount: 86,
@@ -90,6 +97,8 @@ const lockedDeveloper = {
   labAuthenticated: false,
   captureEnabled: false,
   recordCount: 0,
+  lifecycleCount: 0,
+  observedRevisionCount: 0,
   storedBytes: 0,
   oldestAt: null,
   adbPullExpiresAt: null,
@@ -100,6 +109,8 @@ const unlockedDeveloper = {
   labAuthenticated: true,
   captureEnabled: false,
   recordCount: 12,
+  lifecycleCount: 7,
+  observedRevisionCount: 41,
   storedBytes: 4096,
   oldestAt: 1_700_000_000_000,
   adbPullExpiresAt: null,
@@ -107,13 +118,15 @@ const unlockedDeveloper = {
 
 beforeEach(() => {
   window.location.hash = ''
+  localStorage.removeItem('needlebub-theme-preference')
+  delete document.documentElement.dataset.theme
   Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
   for (const value of Object.values(mockNeedleBub)) value.mockReset()
   mockNeedleBub.status.mockResolvedValue(activeStatus)
   mockNeedleBub.listPacks.mockResolvedValue({ packs: [otpPack] })
   mockNeedleBub.catalogue.mockResolvedValue({ entries: [] })
   mockNeedleBub.listNotificationApps.mockResolvedValue({ apps: [] })
-  mockNeedleBub.diagnostics.mockResolvedValue({ version: '0.1.0-alpha.7', engineAbi: 'needle-2.0.9' })
+  mockNeedleBub.diagnostics.mockResolvedValue({ version: '0.1.0-beta.1', engineAbi: 'needle-2.0.9' })
   mockNeedleBub.developerDataStatus.mockResolvedValue(lockedDeveloper)
   mockNeedleBub.unlockDeveloperData.mockResolvedValue({ unlocked: true })
   mockNeedleBub.getPackUpdateStatus.mockResolvedValue({
@@ -128,6 +141,7 @@ beforeEach(() => {
   })
   mockNeedleBub.getFeatureActivity.mockResolvedValue(activity)
   mockNeedleBub.setAutomaticOtpEnabled.mockResolvedValue(undefined)
+  mockNeedleBub.setAutoCopyEnabled.mockResolvedValue(undefined)
   mockNeedleBub.saveNotificationApps.mockResolvedValue(undefined)
   mockNeedleBub.removePack.mockResolvedValue({ removed: true })
   mockNeedleBub.setAutomaticPackUpdates.mockResolvedValue(undefined)
@@ -144,17 +158,44 @@ beforeEach(() => {
   mockNeedleBub.resetFeatureActivity.mockResolvedValue(undefined)
 })
 
-describe('NeedleBub capability host alpha.7', () => {
-  it('renders One-time codes as a compact operational module', async () => {
+describe('NeedleBub capability host beta.1', () => {
+  it('applies the Android system color scheme returned by the native host', async () => {
+    mockNeedleBub.status.mockResolvedValue({ ...activeStatus, colorScheme: 'dark' })
     render(<App />)
 
-    expect(await screen.findByRole('heading', { name: 'One-time codes' })).toBeInTheDocument()
-    expect(screen.getByText('All apps')).toBeInTheDocument()
-    expect(screen.getByText('OTP Extractor α2')).toBeInTheDocument()
-    expect(screen.getByText('1 code · 37 filtered today')).toBeInTheDocument()
-    expect(screen.getByText('Avg 0.7s')).toBeInTheDocument()
-    expect(screen.getByText('Local runtime')).toBeInTheDocument()
-    expect(screen.queryByText(/private notification$/)).not.toBeInTheDocument()
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe('dark'))
+  })
+
+  it('persists a manual theme choice independently of the Android system color', async () => {
+    window.location.hash = '#/settings'
+    const user = userEvent.setup()
+    const { unmount } = render(<App />)
+    await user.click(await screen.findByRole('button', { name: 'Dark' }))
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(localStorage.getItem('needlebub-theme-preference')).toBe('dark')
+    unmount()
+    render(<App />)
+    await waitFor(() => expect(document.documentElement.dataset.theme).toBe('dark'))
+  })
+
+  it('shows unavailable diagnostics after a completed empty read', async () => {
+    window.location.hash = '#/settings'
+    mockNeedleBub.diagnostics.mockResolvedValue({})
+    render(<App />)
+    await waitFor(() => expect(screen.getAllByText('Unavailable')).toHaveLength(2))
+  })
+
+  it('opens the built-in model from Overview into a compact operational console', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    expect(await screen.findByRole('heading', { name: 'Your models.' })).toBeInTheDocument()
+    expect(screen.getByText('OTP Extractor · verified official model · 1 code today')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Open one-time codes' }))
+    expect(await screen.findByRole('heading', { name: 'One-time codes.' })).toBeInTheDocument()
+    expect(screen.getByText('Ready for codes.')).toBeInTheDocument()
+    expect(screen.getByText('1 code handled')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
   })
 
   it('shows only the next setup action in the same feature module', async () => {
@@ -165,41 +206,91 @@ describe('NeedleBub capability host alpha.7', () => {
     })
     render(<App />)
 
+    expect(await screen.findByText('Setup needed')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Open one-time codes' }))
     expect(await screen.findByRole('button', { name: 'Allow notifications' })).toBeInTheDocument()
-    expect(screen.getByText('Private result notifications')).toBeInTheDocument()
+    expect(screen.getByText('Allow private result notifications.')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Download model' })).not.toBeInTheDocument()
     expect(screen.queryByRole('switch', { name: 'One-time codes' })).not.toBeInTheDocument()
   })
 
-  it('keeps an independent Home toggle and opens the feature page without a duplicate body title', async () => {
+  it('keeps historical activity accessible when setup needs attention', async () => {
+    window.location.hash = '#/features/otp'
+    mockNeedleBub.status.mockResolvedValue({ ...activeStatus, notificationAccess: false, automaticOtpConfigured: false })
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('button', { name: 'View past activity' }))
+    expect(await screen.findByRole('heading', { name: 'Activity.' })).toBeInTheDocument()
+  })
+
+  it('pauses the feature and opens graph-free seven-day activity', async () => {
     const user = userEvent.setup()
     render(<App />)
 
-    await user.click(await screen.findByRole('switch', { name: 'One-time codes' }))
+    await user.click(await screen.findByRole('button', { name: 'Open one-time codes' }))
+    await user.click(screen.getByRole('button', { name: 'Pause' }))
     await waitFor(() => expect(mockNeedleBub.setAutomaticOtpEnabled).toHaveBeenCalledWith({ enabled: false }))
 
-    await user.click(screen.getByRole('button', { name: 'Manage One-time codes' }))
-    expect(window.location.hash).toBe('#/features/otp')
-    expect(await screen.findByText('Seven-day activity')).toBeInTheDocument()
-    expect(screen.queryAllByRole('heading', { name: 'One-time codes' })).toHaveLength(0)
+    await user.click(screen.getByRole('button', { name: 'View activity' }))
+    expect(window.location.hash).toBe('#/features/otp/activity')
+    expect(await screen.findByRole('heading', { name: 'Activity.' })).toBeInTheDocument()
+    expect(screen.getByText('Past 7 days')).toBeInTheDocument()
+    expect(screen.queryByText('Skipped')).not.toBeInTheDocument()
   })
 
-  it('autosaves source changes and restores the previous selection on failure', async () => {
+  it('stages independent source policies and retains draft on failed Save', async () => {
     window.location.hash = '#/features/otp/sources'
     mockNeedleBub.listNotificationApps.mockResolvedValue({
-      apps: [{ packageName: 'de.bank', label: 'Needle Bank', selected: true }],
+      apps: [{ packageName: 'de.bank', label: 'Needle Bank', selected: true, excluded: false }, { packageName: 'de.mail', label: 'Needle Mail', selected: false, excluded: true }],
     })
     mockNeedleBub.saveNotificationApps.mockRejectedValue(new Error('storage unavailable'))
     const user = userEvent.setup()
     render(<App />)
 
-    const toggle = await screen.findByRole('switch', { name: 'All notification apps' })
-    expect(toggle).toBeChecked()
-    await user.click(toggle)
+    const only = await screen.findByRole('radio', { name: /Only these apps/ })
+    const except = screen.getByRole('radio', { name: /All except these apps/ })
+    expect(except).toBeChecked()
+    await user.click(only)
+    expect(screen.getByRole('checkbox', { name: 'Needle Bank: Allowed' })).toBeChecked()
+    await user.click(screen.getByRole('button', { name: 'Save policy' }))
+    await waitFor(() => expect(mockNeedleBub.saveNotificationApps).toHaveBeenCalledWith({ allApps: false, packages: ['de.bank'], excludedPackages: ['de.mail'] }))
+    expect(await screen.findByText('Could not save this source policy. Your previous selection is still active.')).toBeInTheDocument()
+    expect(only).toBeChecked()
+  })
 
-    await waitFor(() => expect(mockNeedleBub.saveNotificationApps).toHaveBeenCalledWith({ allApps: false, packages: ['de.bank'] }))
-    expect(await screen.findByText('Could not save that source change. Your previous selection is still active.')).toBeInTheDocument()
-    expect(toggle).toBeChecked()
+  it('blocks source edits and Save when installed apps fail to load', async () => {
+    window.location.hash = '#/features/otp/sources'
+    mockNeedleBub.listNotificationApps.mockRejectedValue(new Error('App list unavailable'))
+    render(<App />)
+    expect(await screen.findByText('Could not load installed apps. Your saved source policy has not changed.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save policy' })).not.toBeInTheDocument()
+    expect(mockNeedleBub.saveNotificationApps).not.toHaveBeenCalled()
+  })
+
+  it('keeps a saved source policy visible when status refresh fails and retries it', async () => {
+    window.location.hash = '#/features/otp/sources'
+    mockNeedleBub.listNotificationApps.mockResolvedValue({ apps: [
+      { packageName: 'de.bank', label: 'Needle Bank', selected: true, excluded: false },
+      { packageName: 'de.mail', label: 'Needle Mail', selected: false, excluded: false },
+    ] })
+    mockNeedleBub.status
+      .mockResolvedValueOnce(activeStatus)
+      .mockRejectedValueOnce(new Error('status unavailable'))
+      .mockResolvedValue({ ...activeStatus, allApps: false, selectedAppCount: 1 })
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(await screen.findByRole('radio', { name: /Only these apps/ }))
+    await user.click(screen.getByRole('button', { name: 'Save policy' }))
+
+    expect(await screen.findByText('Source policy saved, but current status could not be refreshed. Try again.')).toBeInTheDocument()
+    expect(screen.getByText('1 of 2 apps allowed')).toBeInTheDocument()
+    expect(window.location.hash).toBe('#/features/otp/sources')
+    expect(screen.getByRole('radio', { name: /Only these apps/ })).toBeChecked()
+    expect(screen.queryByRole('button', { name: 'Save policy' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Retry status' }))
+    expect(await screen.findByRole('heading', { name: 'One-time codes.' })).toBeInTheDocument()
+    expect(screen.getAllByText('1 app')).toHaveLength(2)
   })
 
   it('warns that removing the official model stops the feature', async () => {
@@ -218,7 +309,7 @@ describe('NeedleBub capability host alpha.7', () => {
     window.location.hash = '#/features/otp'
     const { unmount } = render(<App />)
 
-    expect(await screen.findByText('Seven-day activity')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'One-time codes.' })).toBeInTheDocument()
     expect(screen.queryByText('Automation')).not.toBeInTheDocument()
     expect(screen.queryByText('MacroDroid installed')).not.toBeInTheDocument()
 
@@ -228,6 +319,32 @@ describe('NeedleBub capability host alpha.7', () => {
 
     expect(await screen.findByText('MacroDroid')).toBeInTheDocument()
     expect(screen.getByText('Run any installed external capability pack from MacroDroid.')).toBeInTheDocument()
+  })
+
+  it('offers auto-copy as an OTP feature setting that persists through the bridge', async () => {
+    window.location.hash = '#/features/otp'
+    const user = userEvent.setup()
+    render(<App />)
+
+    const toggle = await screen.findByRole('switch', { name: 'Auto-copy codes' })
+    expect(toggle).not.toBeChecked()
+    expect(screen.getByText('Replace your clipboard with new codes while your phone is unlocked.')).toBeInTheDocument()
+
+    await user.click(toggle)
+    await waitFor(() => expect(mockNeedleBub.setAutoCopyEnabled).toHaveBeenCalledWith({ enabled: true }))
+  })
+
+  it('restores the previous auto-copy selection when the bridge rejects the change', async () => {
+    window.location.hash = '#/features/otp'
+    mockNeedleBub.setAutoCopyEnabled.mockRejectedValue(new Error('storage unavailable'))
+    const user = userEvent.setup()
+    render(<App />)
+
+    const toggle = await screen.findByRole('switch', { name: 'Auto-copy codes' })
+    await user.click(toggle)
+
+    await waitFor(() => expect(mockNeedleBub.setAutoCopyEnabled).toHaveBeenCalledWith({ enabled: true }))
+    expect(toggle).not.toBeChecked()
   })
 
   it('moves update policy into Downloads and allows an explicit mobile manual check', async () => {
@@ -256,7 +373,7 @@ describe('NeedleBub capability host alpha.7', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    const version = await screen.findByRole('button', { name: 'Version 0.1.0-alpha.7' })
+    const version = await screen.findByRole('button', { name: 'Version 0.1.0-beta.1' })
     await user.click(version)
     expect(screen.queryByText(/more taps/)).not.toBeInTheDocument()
     await user.click(version)
@@ -297,7 +414,7 @@ describe('NeedleBub capability host alpha.7', () => {
       return { authenticated: true }
     })
     mockNeedleBub.listNotificationRecords.mockResolvedValue({
-      records: [{ id: 'one', capturedAt: 2, appLabel: 'Bank', title: 'First trace', decision: 'OTP', reasonCode: 'OTP_ACCEPTED' }],
+      records: [{ id: 'one', capturedAt: 2, appLabel: 'Bank', title: 'First trace', decision: 'OTP', reasonCode: 'OTP_ACCEPTED', firstSeenAt: 1, lastSeenAt: 2, revisionCount: 3, supersededCount: 0, extractionKind: 'messaging' }],
       nextCursor: null,
     })
     render(<App />)
@@ -320,7 +437,7 @@ describe('NeedleBub capability host alpha.7', () => {
     })
     mockNeedleBub.closeDeveloperLab.mockImplementation(async () => { authenticated = false })
     mockNeedleBub.listNotificationRecords.mockResolvedValue({
-      records: [{ id: 'one', capturedAt: 2, appLabel: 'Bank', title: 'First trace', decision: 'OTP', reasonCode: 'OTP_ACCEPTED' }],
+      records: [{ id: 'one', capturedAt: 2, appLabel: 'Bank', title: 'First trace', decision: 'OTP', reasonCode: 'OTP_ACCEPTED', firstSeenAt: 1, lastSeenAt: 2, revisionCount: 3, supersededCount: 0, extractionKind: 'messaging' }],
       nextCursor: null,
     })
     render(<App />)
@@ -342,11 +459,11 @@ describe('NeedleBub capability host alpha.7', () => {
     mockNeedleBub.developerDataStatus.mockResolvedValue(unlockedDeveloper)
     mockNeedleBub.listNotificationRecords
       .mockResolvedValueOnce({
-        records: [{ id: 'one', capturedAt: 2, appLabel: 'Bank', title: 'First trace', decision: 'OTP', reasonCode: 'OTP_ACCEPTED' }],
+      records: [{ id: 'one', capturedAt: 2, appLabel: 'Bank', title: 'First trace', decision: 'OTP', reasonCode: 'OTP_ACCEPTED', firstSeenAt: 1, lastSeenAt: 2, revisionCount: 3, supersededCount: 0, extractionKind: 'messaging' }],
         nextCursor: 2,
       })
       .mockResolvedValueOnce({
-        records: [{ id: 'two', capturedAt: 1, appLabel: 'Shop', title: 'Second trace', decision: 'REJECTED', reasonCode: 'MODEL_NO_MATCH' }],
+        records: [{ id: 'two', capturedAt: 1, appLabel: 'Shop', title: 'Second trace', decision: 'REJECTED', reasonCode: 'MODEL_NO_MATCH', firstSeenAt: 1, lastSeenAt: 1, revisionCount: 1, supersededCount: 0, extractionKind: 'ordinary' }],
         nextCursor: null,
       })
     const user = userEvent.setup()

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  AlertTriangle, ArrowLeft, Bell, Bot, Check, ChevronRight, CircleCheck, CircleX,
-  Clock, Download, FileArchive, FlaskConical, Gauge, Info, LayoutGrid, Package,
-  RefreshCw, Search, Settings, Shield, Trash2, type LucideIcon,
+  AlertTriangle, ArrowLeft, Bell, Bot, ChevronRight, CircleCheck, CircleX,
+  Clock, Download, FileArchive, FlaskConical, Gauge, Info, LayoutGrid,
+  RefreshCw, Settings, Shield, Trash2, type LucideIcon,
 } from 'lucide-react'
 
 import './App.css'
+import './DesignA.css'
+import { OverviewView, OtpFeatureView, ActivityView, SourcesView } from './DesignAViews'
 import {
   needleBub, type AppStatus, type CatalogueEntry, type ColdModelCheck,
   type DeveloperDataStatus, type DiagnosticInfo, type FeatureActivitySummary,
@@ -17,6 +19,7 @@ type Route =
   | 'home'
   | 'feature-otp'
   | 'feature-otp-sources'
+  | 'feature-otp-activity'
   | 'settings'
   | 'settings-runtime'
   | 'settings-downloads'
@@ -48,6 +51,8 @@ const emptyStatus: AppStatus = {
   selectedAppCount: 0,
   automaticOtpConfigured: false,
   automaticOtpEnabled: true,
+  autoCopyEnabled: false,
+  colorScheme: 'light',
   macroDroidInstalled: false,
 }
 
@@ -56,6 +61,8 @@ const emptyDeveloper: DeveloperDataStatus = {
   labAuthenticated: false,
   captureEnabled: false,
   recordCount: 0,
+  lifecycleCount: 0,
+  observedRevisionCount: 0,
   storedBytes: 0,
   oldestAt: null,
   adbPullExpiresAt: null,
@@ -78,11 +85,15 @@ const emptyActivity: FeatureActivitySummary = {
   todayOtp: 0,
   todayRejected: 0,
   todayErrors: 0,
+  todaySkipped: 0,
+  todayBackpressure: 0,
   todaySuppressed: 0,
   todayNotRun: 0,
   totalOtp: 0,
   totalRejected: 0,
   totalErrors: 0,
+  totalSkipped: 0,
+  totalBackpressure: 0,
   totalSuppressed: 0,
   totalNotRun: 0,
   completedInferenceCount: 0,
@@ -93,6 +104,7 @@ const emptyActivity: FeatureActivitySummary = {
 const routeLabels: Record<Exclude<Route, 'home'>, string> = {
   'feature-otp': 'One-time codes',
   'feature-otp-sources': 'Notification sources',
+  'feature-otp-activity': 'Activity',
   settings: 'Settings',
   'settings-runtime': 'Runtime',
   'settings-downloads': 'Downloads',
@@ -115,6 +127,7 @@ function routeFromHash(): Route {
   const routes: Record<string, Route> = {
     'features/otp': 'feature-otp',
     'features/otp/sources': 'feature-otp-sources',
+    'features/otp/activity': 'feature-otp-activity',
     settings: 'settings',
     'settings/runtime': 'settings-runtime',
     'settings/downloads': 'settings-downloads',
@@ -131,6 +144,7 @@ const routeHashes: Record<Route, string> = {
   home: '',
   'feature-otp': '#/features/otp',
   'feature-otp-sources': '#/features/otp/sources',
+  'feature-otp-activity': '#/features/otp/activity',
   settings: '#/settings',
   'settings-runtime': '#/settings/runtime',
   'settings-downloads': '#/settings/downloads',
@@ -146,33 +160,27 @@ function navigate(route: Route) {
 }
 
 function KittyMark() {
-  return <svg className="kitty-mark" viewBox="0 0 48 48" aria-hidden="true">
-    <path d="M40 28V17l-4-4-5-5-7 8-7-8-9 9v18l6 6h13" className="kitty-contour" />
-    <path d="m32 9 3 3" className="kitty-seam" />
-    <path d="m14 29 3-3 3 3m8 0 3-3 3 3M21 32c0 4 3 4 3 0 0 4 3 4 3 0" className="kitty-face" />
-    <path d="m27 42 7.5-12.5q1-2 2.5-.5t0 2.5L29.5 43Z" className="kitty-needle" />
-    <path d="m35 29.5 1.5 1-1 1.5-1.5-1Z" className="kitty-needle-eye" />
-    <path d="M35.8 30c4.5 1.5 6.2 5.7 4 8.8-1.8 2.7-5.2 1.8-4.4-.8" className="kitty-thread-loop" />
-  </svg>
+  return <img className="kitty-mark" src="/needlebub-mark.svg" alt="" aria-hidden="true" />
 }
 
 function AppBar({ route }: { route: Route }) {
-  if (route === 'home') {
-    return <header className="app-bar">
-      <button className="brand" onClick={() => navigate('home')} aria-label="NeedleBub home">
-        <KittyMark /><span>NeedleBub</span>
-      </button>
-      <button className="icon-button" onClick={() => navigate('settings')} aria-label="Settings">
-        <Settings aria-hidden="true" />
-      </button>
-    </header>
-  }
-  return <header className="app-bar app-bar--detail">
-    <button className="icon-button" onClick={() => window.history.back()} aria-label="Back">
-      <ArrowLeft aria-hidden="true" />
-    </button>
-    <span>{routeLabels[route]}</span>
+  if (route === 'home' || route === 'settings' || route === 'feature-otp') return <header className="app-bar da-app-bar">
+    <button className="brand" onClick={() => navigate('home')} aria-label="NeedleBub overview"><KittyMark /><span>NeedleBub</span></button>
+    {route === 'feature-otp' && <button className="da-all-models" onClick={() => navigate('home')}>All capabilities <ChevronRight aria-hidden="true" /></button>}
   </header>
+  const parent: Route = route === 'feature-otp-sources' || route === 'feature-otp-activity' ? 'feature-otp' : 'settings'
+  return <header className="app-bar da-app-bar da-app-bar--detail"><button className="da-back" onClick={() => navigate(parent)}><ArrowLeft aria-hidden="true" /> Back</button><span className="da-detail-brand">NeedleBub</span>{parent === 'settings' && <span className="da-header-route">{routeLabels[route]}</span>}</header>
+}
+
+type ThemePreference = 'system' | 'light' | 'dark'
+const themeKey = 'needlebub-theme-preference'
+function initialThemePreference(): ThemePreference {
+  try { const value = localStorage.getItem(themeKey); if (value === 'light' || value === 'dark') return value } catch { /* storage may be unavailable */ }
+  return 'system'
+}
+
+function MainNav({ route }: { route: 'home' | 'settings' }) {
+  return <nav className="da-bottom-nav" aria-label="Main navigation"><button aria-current={route === 'home' ? 'page' : undefined} onClick={() => navigate('home')}><span className="da-nav-icon da-nav-icon--home" aria-hidden="true" />Overview</button><button aria-current={route === 'settings' ? 'page' : undefined} onClick={() => navigate('settings')}><Settings aria-hidden="true" />Settings</button></nav>
 }
 
 function Toggle({
@@ -226,14 +234,8 @@ function Group({ title, children }: { title: string; children: React.ReactNode }
   </section>
 }
 
-function formatPackVersion(version: string | null | undefined) {
-  if (!version) return 'Not installed'
-  const alpha = /alpha\.(\d+)/.exec(version)
-  return alpha ? `α${alpha[1]}` : version
-}
-
 function sourceLabel(status: AppStatus) {
-  if (status.allApps) return 'All apps'
+  if (status.allApps) return status.excludedAppCount ? `All except ${status.excludedAppCount} ${status.excludedAppCount === 1 ? 'app' : 'apps'}` : 'All apps'
   return status.selectedAppCount === 1 ? '1 app' : `${status.selectedAppCount} apps`
 }
 
@@ -245,32 +247,23 @@ function updateLabel(update: PackUpdateStatus) {
   return 'Not installed'
 }
 
-function formatDuration(durationMs: number | null) {
-  if (durationMs == null) return 'Average —'
-  return durationMs < 100 ? `Avg ${durationMs}ms` : `Avg ${(durationMs / 1000).toFixed(1)}s`
-}
-
-function requirementState(status: AppStatus) {
-  return [
-    { label: 'OTP model pack', complete: status.otpPackInstalled },
-    { label: 'Notification access', complete: status.notificationAccess },
-    { label: 'Private result notifications', complete: status.notificationPermission },
-    { label: 'Notification sources', complete: status.allApps || status.selectedAppCount > 0 },
-  ]
-}
-
 function App() {
   const [route, setRoute] = useState<Route>(routeFromHash)
+  const [themePreference, setThemePreference] = useState<ThemePreference>(initialThemePreference)
   const [status, setStatus] = useState<AppStatus>(emptyStatus)
   const [packs, setPacks] = useState<PackInfo[]>([])
   const [catalogue, setCatalogue] = useState<CatalogueEntry[]>([])
   const [apps, setApps] = useState<NotificationApp[]>([])
+  const [appsLoading, setAppsLoading] = useState(true)
+  const [appsError, setAppsError] = useState<string | null>(null)
   const [developer, setDeveloper] = useState<DeveloperDataStatus>(emptyDeveloper)
   const [diagnostics, setDiagnostics] = useState<DiagnosticInfo | null>(null)
+  const [diagnosticsLoaded, setDiagnosticsLoaded] = useState(false)
   const [update, setUpdate] = useState<PackUpdateStatus>(emptyUpdate)
   const [activity, setActivity] = useState<FeatureActivitySummary>(emptyActivity)
   const [coldCheck, setColdCheck] = useState<ColdModelCheck | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const busyRef = useRef<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
@@ -285,14 +278,38 @@ function App() {
     setStatus(nextStatus)
     setPacks(nextPacks.packs)
     setCatalogue(nextCatalogue.entries)
-    setDeveloper(nextDeveloper)
+    setDeveloper({ ...emptyDeveloper, ...nextDeveloper })
     setUpdate(nextUpdate)
-    setActivity(nextActivity)
+    setActivity({ ...emptyActivity, ...nextActivity })
+  }, [])
+
+  useEffect(() => { document.documentElement.dataset.theme = themePreference === 'system' ? status.colorScheme : themePreference }, [themePreference, status.colorScheme])
+  const chooseTheme = (next: ThemePreference) => {
+    setThemePreference(next)
+    try { if (next === 'system') localStorage.removeItem(themeKey); else localStorage.setItem(themeKey, next) } catch { /* the current session can still use this choice */ }
+  }
+
+  const loadApps = useCallback(async () => {
+    setAppsLoading(true)
+    setAppsError(null)
+    try {
+      const result = await needleBub.listNotificationApps()
+      setApps(result.apps)
+    } catch (error) {
+      setAppsError(error instanceof Error ? error.message : 'Could not load installed apps.')
+    } finally {
+      setAppsLoading(false)
+    }
   }, [])
 
   useEffect(() => {
-    void refresh()
-    const onHash = () => setRoute(routeFromHash())
+    // Initial native hydration is an external-system synchronization.
+    // oxlint-disable-next-line react/set-state-in-effect
+    void refresh().catch((error) => setNotice(error instanceof Error ? error.message : 'Could not load NeedleBub status.'))
+    const onHash = () => {
+      if (busyRef.current === null) setNotice(null)
+      setRoute(routeFromHash())
+    }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [refresh])
@@ -301,15 +318,17 @@ function App() {
     document.documentElement.scrollTop = 0
     document.body.scrollTop = 0
     if (route === 'feature-otp-sources') {
-      void needleBub.listNotificationApps().then((result) => setApps(result.apps))
+      // Source-list hydration is an external native synchronization.
+      // oxlint-disable-next-line react/set-state-in-effect
+      void loadApps()
     }
     if (route === 'settings' || route === 'settings-runtime') {
-      void needleBub.diagnostics().then(setDiagnostics)
+      void needleBub.diagnostics().then(setDiagnostics).catch(() => setDiagnostics(null)).finally(() => setDiagnosticsLoaded(true))
     }
     if (route === 'developer-data' || route === 'developer-records') {
-      void needleBub.developerDataStatus().then(setDeveloper)
+      void needleBub.developerDataStatus().then(setDeveloper).catch(() => setDeveloper(emptyDeveloper))
     }
-  }, [route])
+  }, [route, loadApps])
 
   useEffect(() => {
     const onVisibility = () => {
@@ -325,6 +344,7 @@ function App() {
   }, [refresh])
 
   const run = useCallback(async (key: string, work: () => Promise<unknown>, success?: string) => {
+    busyRef.current = key
     setBusy(key)
     setNotice(null)
     try {
@@ -334,27 +354,31 @@ function App() {
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'That action could not be completed.')
     } finally {
+      busyRef.current = null
       setBusy(null)
     }
   }, [refresh])
 
   const common = { status, packs, catalogue, update, activity, busy, notice, run, refresh }
   let content: React.ReactNode
-  if (route === 'home') content = <HomeView {...common} />
+  if (route === 'home') content = <OverviewView {...common} />
   else if (route === 'feature-otp') content = <OtpFeatureView {...common} />
-  else if (route === 'feature-otp-sources') content = <SourcesView status={status} apps={apps} onAppsChange={setApps} onRefresh={refresh} />
-  else if (route === 'settings') content = <SettingsView status={status} developer={developer} diagnostics={diagnostics} coldCheck={coldCheck} busy={busy} onDeveloperChange={setDeveloper} onColdCheck={() => void run('cold-check', async () => setColdCheck(await needleBub.runColdModelCheck()))} />
-  else if (route === 'settings-runtime') content = <RuntimeView diagnostics={diagnostics} />
+  else if (route === 'feature-otp-activity') content = <ActivityView status={status} activity={activity} />
+  else if (route === 'feature-otp-sources') content = <SourcesView status={status} apps={apps} loading={appsLoading} loadError={appsError} onRetry={() => void loadApps()} onAppsChange={setApps} onRefresh={refresh} />
+  else if (route === 'settings') content = <SettingsView status={status} developer={developer} diagnostics={diagnostics} diagnosticsLoaded={diagnosticsLoaded} coldCheck={coldCheck} busy={busy} notice={notice} run={run} themePreference={themePreference} onThemeChange={chooseTheme} onDeveloperChange={setDeveloper} onColdCheck={() => void run('cold-check', async () => setColdCheck(await needleBub.runColdModelCheck()))} />
+  else if (route === 'settings-runtime') content = <RuntimeView diagnostics={diagnostics} diagnosticsLoaded={diagnosticsLoaded} />
   else if (route === 'settings-downloads') content = <DownloadsView update={update} busy={busy} onUpdate={setUpdate} run={run} />
   else if (route === 'settings-models') content = <ModelsView packs={packs} busy={busy} run={run} />
-  else if (route === 'settings-integrations') content = <IntegrationsView status={status} />
+  else if (route === 'settings-integrations') content = <IntegrationsView status={status} run={run} />
   else if (route === 'settings-privacy') content = <PrivacyView busy={busy} run={run} />
-  else if (route === 'developer-records') content = <RecordsView developer={developer} onDeveloperChange={setDeveloper} />
-  else content = <DataControlsView developer={developer} onDeveloperChange={setDeveloper} />
+  else if (route === 'developer-records') content = <RecordsView key={developer.labAuthenticated ? 'authenticated' : 'locked'} developer={developer} onDeveloperChange={setDeveloper} />
+  else content = <DataControlsView key={developer.labAuthenticated ? 'authenticated' : 'locked'} developer={developer} onDeveloperChange={setDeveloper} />
 
-  return <div className="app-shell">
+  return <div className="app-shell design-a">
     <AppBar route={route} />
     {content}
+    {notice && !['home', 'feature-otp', 'settings'].includes(route) && <p className="inline-notice da-global-notice" role="status">{notice}</p>}
+    {(route === 'home' || route === 'settings') && <MainNav route={route} />}
   </div>
 }
 
@@ -370,231 +394,30 @@ type CommonViewProps = {
   refresh: () => Promise<void>
 }
 
-function HomeView({ status, packs, catalogue, activity, busy, notice, run, refresh }: CommonViewProps) {
-  const feature = builtInFeatures[0]
-  const pack = packs.find((value) => value.id === feature.packId && value.active)
-  const active = status.automaticOtpConfigured && status.automaticOtpEnabled
-  const requirements = requirementState(status)
-  const next = requirements.find((item) => !item.complete)
-  const [optimisticStatus, setOptimisticStatus] = useState(status.automaticOtpEnabled)
-  useEffect(() => setOptimisticStatus(status.automaticOtpEnabled), [status.automaticOtpEnabled])
-
-  const setEnabled = async (enabled: boolean) => {
-    setOptimisticStatus(enabled)
-    try {
-      await needleBub.setAutomaticOtpEnabled({ enabled })
-      await refresh()
-    } catch {
-      await refresh()
-    }
-  }
-
-  const setupAction = () => {
-    if (!status.otpPackInstalled) {
-      const entry = catalogue.find((value) => value.id === feature.packId)
-      void run('install', () => entry ? needleBub.installCataloguePack({ id: entry.id }) : needleBub.checkForPackUpdates({ allowMetered: true }), 'OTP Extractor installed.')
-    } else if (!status.notificationAccess) {
-      void needleBub.openNotificationAccess()
-    } else if (!status.notificationPermission) {
-      void run('permission', () => needleBub.requestNotificationPermission())
-    } else {
-      navigate('feature-otp-sources')
-    }
-  }
-
-  const errorMetric = activity.todayErrors > 0
-    ? `${activity.todayErrors} ${activity.todayErrors === 1 ? 'error' : 'errors'} today`
-    : formatDuration(activity.averageDurationMs)
-  const activityMetric = activity.todayOtp === 0 && activity.todayRejected === 0
-    ? 'No activity today'
-    : `${activity.todayOtp} ${activity.todayOtp === 1 ? 'code' : 'codes'} · ${activity.todayRejected} filtered today`
-
-  return <main className="screen home-screen">
-    <article className={`feature-module ${active ? 'feature-module--active' : ''}`}>
-      <div className="feature-module__head">
-        <button className="feature-module__open" onClick={() => navigate('feature-otp')} aria-label="Manage One-time codes">
-          <h1>{feature.name}</h1>
-          <p>{status.automaticOtpConfigured && !optimisticStatus ? 'Paused' : feature.description}</p>
-        </button>
-        {status.automaticOtpConfigured && <Toggle
-          label="One-time codes"
-          checked={optimisticStatus}
-          disabled={busy !== null}
-          onChange={(enabled) => void setEnabled(enabled)}
-        />}
-      </div>
-      <div className="feature-module__seam">
-        {status.automaticOtpConfigured ? <>
-          <button className="feature-routing" onClick={() => navigate('feature-otp')} aria-label="Manage One-time codes routing">
-            <span>{sourceLabel(status)}</span>
-            <span>{pack?.name ?? 'OTP Extractor'} {formatPackVersion(pack?.version)}</span>
-          </button>
-          <button className="feature-metrics" onClick={() => navigate('feature-otp')} aria-label="Manage One-time codes activity">
-            <span>{activityMetric}</span>
-            <span className={activity.todayErrors > 0 ? 'metric-error' : ''}>{errorMetric}</span>
-          </button>
-        </> : <>
-          <div className="setup-summary">
-            <span>{requirements.filter((item) => item.complete).length} of {requirements.length} ready</span>
-            <span>{next?.label ?? 'Ready'}</span>
-          </div>
-          <button className="primary-action setup-action" disabled={busy !== null} onClick={setupAction}>
-            {busy ? 'Working…' : !status.otpPackInstalled ? 'Download model' : !status.notificationAccess ? 'Open notification access' : !status.notificationPermission ? 'Allow notifications' : 'Choose sources'}
-          </button>
-        </>}
-      </div>
-    </article>
-    {notice && <p className="inline-notice" role="status">{notice}</p>}
-    <button className="runtime-row" onClick={() => navigate('settings-runtime')} aria-label="Runtime, local and on device">
-      <Gauge aria-hidden="true" />
-      <span><strong>Local runtime</strong><small>On device · releases after 5 seconds idle</small></span>
-      <ChevronRight aria-hidden="true" />
-    </button>
-  </main>
-}
-
-function OtpFeatureView({ status, packs, catalogue, update, activity, busy, notice, run }: CommonViewProps) {
-  const pack = packs.find((value) => value.id === builtInFeatures[0].packId && value.active)
-  const entry = catalogue.find((value) => value.id === builtInFeatures[0].packId)
-  const requirements = requirementState(status)
-  const setEnabled = async (enabled: boolean) => {
-    await run('toggle-otp', () => needleBub.setAutomaticOtpEnabled({ enabled }))
-  }
-  const modelAction = async () => {
-    if (!pack && entry) {
-      await run('model', () => needleBub.installCataloguePack({ id: entry.id }), 'OTP Extractor installed.')
-    } else {
-      await run('model', () => needleBub.checkForPackUpdates({ allowMetered: true }), 'Model check complete.')
-    }
-  }
-
-  return <main className="screen detail-screen">
-    <section className="feature-overview">
-      <div>
-        <p className={`state-line ${status.automaticOtpConfigured && status.automaticOtpEnabled ? 'state-line--active' : ''}`}>
-          {status.automaticOtpConfigured ? status.automaticOtpEnabled ? 'Active' : 'Paused' : 'Setup required'}
-        </p>
-        <p>Extract codes from notification messages and deliver them through a private result notification.</p>
-      </div>
-      {status.automaticOtpConfigured && <Toggle label="One-time codes" checked={status.automaticOtpEnabled} disabled={busy !== null} onChange={(enabled) => void setEnabled(enabled)} />}
-    </section>
-
-    {!status.automaticOtpConfigured && <section className="setup-panel">
-      <h2>Finish setup</h2>
-      <ul className="requirement-list">
-        {requirements.map((item) => <li key={item.label} className={item.complete ? 'complete' : ''}>
-          <span aria-hidden="true">{item.complete ? <Check /> : null}</span>
-          <span>{item.label}</span>
-          <small>{item.complete ? 'Ready' : 'Needed'}</small>
-        </li>)}
-      </ul>
-    </section>}
-
-    <section className="activity-section">
-      <h2>Seven-day activity</h2>
-      <div className="activity-grid">
-        <div><strong>{activity.totalOtp}</strong><small>Codes</small></div>
-        <div><strong>{activity.totalRejected}</strong><small>Filtered</small></div>
-        <div><strong>{activity.averageDurationMs == null ? '—' : `${(activity.averageDurationMs / 1000).toFixed(1)}s`}</strong><small>Average</small></div>
-        <div><strong>{activity.totalErrors}</strong><small>Errors</small></div>
-      </div>
-    </section>
-
-    {notice && <p className="inline-notice" role="status">{notice}</p>}
-    <section className="feature-settings">
-      <h2>Feature settings</h2>
-      <div className="feature-setting-row">
-        <Package aria-hidden="true" />
-        <span><strong>Model</strong><small>{pack ? `${pack.name} ${pack.version} · Verified` : 'OTP Extractor is not installed'}</small></span>
-        <button className={pack ? 'text-action' : 'primary-small'} disabled={busy !== null} onClick={() => void modelAction()}>
-          {busy === 'model' ? 'Working…' : !pack ? 'Download' : update.availableVersion ? 'Update' : 'Check'}
-        </button>
-      </div>
-      <Row icon={LayoutGrid} label="Notification sources" value={sourceLabel(status)} onClick={() => navigate('feature-otp-sources')} />
-      <Row icon={Bell} label="Result delivery" value={status.notificationPermission ? 'Private notifications allowed' : 'Permission needed'} onClick={() => void needleBub.openNotificationSettings()} />
-    </section>
-    {pack && <button className="danger-text" disabled={busy !== null} onClick={() => {
-      if (window.confirm(`Remove ${pack.name} ${pack.version}? One-time codes will stop until it is reinstalled.`)) {
-        void run('remove-official', () => needleBub.removePack({ id: pack.id, version: pack.version }), `${pack.name} removed.`)
-      }
-    }}>Remove {pack.name}</button>}
-  </main>
-}
-
-function SourcesView({
-  status,
-  apps,
-  onAppsChange,
-  onRefresh,
-}: {
-  status: AppStatus
-  apps: NotificationApp[]
-  onAppsChange: (apps: NotificationApp[]) => void
-  onRefresh: () => Promise<void>
-}) {
-  const [allApps, setAllApps] = useState(status.allApps)
-  const [query, setQuery] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  useEffect(() => setAllApps(status.allApps), [status.allApps])
-
-  const save = async (nextAll: boolean, nextApps: NotificationApp[], previousAll: boolean, previousApps: NotificationApp[]) => {
-    setError(null)
-    setAllApps(nextAll)
-    onAppsChange(nextApps)
-    try {
-      await needleBub.saveNotificationApps({
-        allApps: nextAll,
-        packages: nextApps.filter((app) => app.selected).map((app) => app.packageName),
-      })
-      await onRefresh()
-    } catch {
-      setAllApps(previousAll)
-      onAppsChange(previousApps)
-      setError('Could not save that source change. Your previous selection is still active.')
-    }
-  }
-
-  const filtered = apps.filter((app) => app.label.toLocaleLowerCase().includes(query.toLocaleLowerCase()) || app.packageName.includes(query))
-  return <main className="screen detail-screen">
-    <div className="switch-row switch-row--first">
-      <span><strong>All notification apps</strong><small>Process notifications from every installed app.</small></span>
-      <Toggle label="All notification apps" checked={allApps} onChange={(enabled) => void save(enabled, apps, allApps, apps)} />
-    </div>
-    {error && <p className="inline-notice inline-notice--error" role="alert">{error}</p>}
-    {!allApps && <>
-      <label className="search-field">
-        <Search aria-hidden="true" />
-        <span className="sr-only">Search apps</span>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search apps" />
-      </label>
-      <div className="app-list">
-        {filtered.map((app) => <label className="app-choice" key={app.packageName}>
-          <input type="checkbox" checked={app.selected} onChange={() => {
-            const next = apps.map((value) => value.packageName === app.packageName ? { ...value, selected: !value.selected } : value)
-            void save(false, next, allApps, apps)
-          }} />
-          <span><strong>{app.label}</strong><small>{app.packageName}</small></span>
-        </label>)}
-        {filtered.length === 0 && <p className="empty-copy">No matching apps.</p>}
-      </div>
-    </>}
-  </main>
-}
-
 function SettingsView({
   status,
   developer,
   diagnostics,
+  diagnosticsLoaded,
   coldCheck,
   busy,
+  notice,
+  run,
+  themePreference,
+  onThemeChange,
   onDeveloperChange,
   onColdCheck,
 }: {
   status: AppStatus
   developer: DeveloperDataStatus
   diagnostics: DiagnosticInfo | null
+  diagnosticsLoaded: boolean
   coldCheck: ColdModelCheck | null
   busy: string | null
+  notice: string | null
+  run: CommonViewProps['run']
+  themePreference: ThemePreference
+  onThemeChange: (value: ThemePreference) => void
   onDeveloperChange: (developer: DeveloperDataStatus) => void
   onColdCheck: () => void
 }) {
@@ -616,9 +439,11 @@ function SettingsView({
     const next = tapCount + 1
     setTapCount(next)
     if (next >= 7) {
-      await needleBub.unlockDeveloperData()
-      onDeveloperChange(await needleBub.developerDataStatus())
-      showToast('Developer Mode unlocked.')
+      try {
+        await needleBub.unlockDeveloperData()
+        onDeveloperChange(await needleBub.developerDataStatus())
+        showToast('Developer Mode unlocked.')
+      } catch (error) { showToast(error instanceof Error ? error.message : 'Could not unlock Developer Mode.') }
     } else if (next > 1) {
       showToast(`${7 - next} more taps to unlock Developer Mode.`)
     }
@@ -628,16 +453,25 @@ function SettingsView({
     ? `${coldCheck.passed ? 'Passed' : `Failed · ${coldCheck.errorCode ?? 'UNKNOWN'}`} · ${coldCheck.coldLoad ? 'cold load' : 'warm load'} · ${coldCheck.durationMs} ms · ${Math.round(coldCheck.pssKb / 1024)} MiB`
     : null
 
-  return <main className="screen settings-screen">
-    <Group title="Inference">
-      <Row icon={Gauge} label="Runtime" value="Local · 5 second idle release" onClick={() => navigate('settings-runtime')} />
-      <Row icon={Download} label="Downloads" value="Automatic updates and network policy" onClick={() => navigate('settings-downloads')} />
-      <Row icon={FileArchive} label="Models and imports" value="Manage unverified external packs" onClick={() => navigate('settings-models')} />
+  return <main className="screen settings-screen da-settings">
+    <h1>Settings<span className="da-dot">.</span></h1>
+    <section className="da-settings-group" aria-labelledby="appearance-title"><h2 id="appearance-title">Appearance</h2><div className="da-theme-options" role="group" aria-label="Appearance">
+      {(['system', 'light', 'dark'] as const).map(option => <button key={option} aria-pressed={themePreference === option} onClick={() => onThemeChange(option)}>{option[0].toUpperCase() + option.slice(1)}</button>)}
+    </div></section>
+    <Group title="Access">
+      <Row icon={Bell} label="Notification access" value={status.notificationAccess ? 'Allowed' : 'Needed for one-time codes'} onClick={() => void run('access', () => needleBub.openNotificationAccess())} />
+      <Row icon={LayoutGrid} label="Notification sources" value={sourceLabel(status)} onClick={() => navigate('feature-otp-sources')} />
+      <Row icon={Bell} label="Result notifications" value={status.notificationPermission ? 'Allowed' : 'Permission needed'} onClick={() => void run('notification-settings', () => needleBub.openNotificationSettings())} />
     </Group>
-    <Group title="Connections">
-      <Row icon={Bot} label="Integrations" value={status.macroDroidInstalled ? 'MacroDroid and inference gateway' : 'Inference gateway'} onClick={() => navigate('settings-integrations')} />
-      <Row icon={Shield} label="Privacy and data" value="On-device processing and activity summaries" onClick={() => navigate('settings-privacy')} />
-    </Group>
+    <Group title="Privacy and data"><Row icon={Shield} label="Privacy controls" value="Activity summaries and local data" onClick={() => navigate('settings-privacy')} /></Group>
+    <details className="da-advanced"><summary>Advanced settings <ChevronRight aria-hidden="true" /></summary><div>
+      <Group title="Models and runtime">
+        <Row icon={Gauge} label="Runtime" value="Local · 5 second idle release" onClick={() => navigate('settings-runtime')} />
+        <Row icon={Download} label="Downloads" value="Automatic updates and network policy" onClick={() => navigate('settings-downloads')} />
+        <Row icon={FileArchive} label="Models and imports" value="Manage unverified external packs" onClick={() => navigate('settings-models')} />
+      </Group>
+      <Group title="Connections"><Row icon={Bot} label="Integrations" value={status.macroDroidInstalled ? 'MacroDroid and inference gateway' : 'Inference gateway'} onClick={() => navigate('settings-integrations')} /></Group>
+    </div></details>
     {developer.unlocked && <Group title="Developer">
       <Row icon={FlaskConical} label="Notification records" value={`${developer.recordCount} encrypted ${developer.recordCount === 1 ? 'record' : 'records'}`} onClick={() => navigate('developer-records')} />
       <Row icon={FileArchive} label="Capture and export" value={developer.captureEnabled ? 'Capture enabled' : 'Capture disabled'} onClick={() => navigate('developer-data')} />
@@ -648,8 +482,8 @@ function SettingsView({
       {coldResult && <p className={coldCheck?.passed ? 'check-result check-result--passed' : 'check-result'} role="status">{coldResult}</p>}
     </Group>}
     <Group title="About">
-      <div className="fact-row"><span>Version</span><button aria-label={`Version ${String(diagnostics?.version ?? 'Reading')}`} onClick={() => void tapVersion()}>{String(diagnostics?.version ?? 'Reading…')}</button></div>
-      <div className="fact-row"><span>Engine</span><code>{String(diagnostics?.engineAbi ?? 'Reading…')}</code></div>
+      <div className="fact-row"><span>Version</span><button aria-label={`Version ${String(diagnostics?.version ?? (diagnosticsLoaded ? 'Unavailable' : 'Reading'))}`} onClick={() => void tapVersion()}>{String(diagnostics?.version ?? (diagnosticsLoaded ? 'Unavailable' : 'Reading…'))}</button></div>
+      <div className="fact-row"><span>Engine</span><code>{String(diagnostics?.engineAbi ?? (diagnosticsLoaded ? 'Unavailable' : 'Reading…'))}</code></div>
       <details className="about-details">
         <summary><Info aria-hidden="true" /><span>Privacy and licenses</span><ChevronRight aria-hidden="true" /></summary>
         <div>
@@ -658,17 +492,18 @@ function SettingsView({
         </div>
       </details>
     </Group>
+    {notice && <p className="inline-notice" role="status">{notice}</p>}
     {toast && <div className="unlock-toast" role="status" aria-live="polite">{toast}</div>}
   </main>
 }
 
-function RuntimeView({ diagnostics }: { diagnostics: DiagnosticInfo | null }) {
+function RuntimeView({ diagnostics, diagnosticsLoaded }: { diagnostics: DiagnosticInfo | null; diagnosticsLoaded: boolean }) {
   return <main className="screen detail-screen">
     <p className="page-lead">NeedleBub loads installed models into a permissionless isolated Android process only when work exists.</p>
     <dl className="evidence-list">
       <div><dt>Execution</dt><dd>On device</dd></div>
       <div><dt>Idle release</dt><dd>5 seconds</dd></div>
-      <div><dt>Engine ABI</dt><dd><code>{String(diagnostics?.engineAbi ?? 'Reading…')}</code></dd></div>
+      <div><dt>Engine ABI</dt><dd><code>{String(diagnostics?.engineAbi ?? (diagnosticsLoaded ? 'Unavailable' : 'Reading…'))}</code></dd></div>
       <div><dt>Gateway</dt><dd><code>de.bubblebuffer.needlebub.action.INFERENCE_GATEWAY</code></dd></div>
     </dl>
   </main>
@@ -746,12 +581,12 @@ function ModelsView({ packs, busy, run }: { packs: PackInfo[]; busy: string | nu
   </main>
 }
 
-function IntegrationsView({ status }: { status: AppStatus }) {
+function IntegrationsView({ status, run }: { status: AppStatus; run: CommonViewProps['run'] }) {
   return <main className="screen detail-screen">
     <section className="copy-section">
       <h2>MacroDroid</h2>
       <p>Run any installed external capability pack from MacroDroid.</p>
-      <Row icon={Bot} label="Open MacroDroid" value={status.macroDroidInstalled ? 'Installed' : 'Not installed'} disabled={!status.macroDroidInstalled} onClick={() => void needleBub.openMacroDroid()} />
+      <Row icon={Bot} label="Open MacroDroid" value={status.macroDroidInstalled ? 'Installed' : 'Not installed'} disabled={!status.macroDroidInstalled} onClick={() => void run('macrodroid', () => needleBub.openMacroDroid())} />
     </section>
     <section className="technical-block">
       <h2>Inference gateway</h2>
@@ -784,10 +619,10 @@ function useDeveloperAuthentication(
   onDeveloperChange: (developer: DeveloperDataStatus) => void,
 ) {
   const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     let live = true
     if (!developer.unlocked || developer.labAuthenticated) return
-    setError(null)
     void needleBub.authenticateDeveloperLab()
       .then(async () => {
         const next = await needleBub.developerDataStatus()
@@ -797,16 +632,25 @@ function useDeveloperAuthentication(
         if (live) setError(reason instanceof Error ? reason.message : 'Device authentication failed.')
       })
     return () => { live = false }
-  }, [developer.labAuthenticated, developer.unlocked, onDeveloperChange])
-  return { authenticated: developer.unlocked && developer.labAuthenticated, error }
+  }, [attempt, developer.labAuthenticated, developer.unlocked, onDeveloperChange])
+  return {
+    authenticated: developer.unlocked && developer.labAuthenticated,
+    error,
+    retry: () => {
+      setError(null)
+      setAttempt((current) => current + 1)
+    },
+  }
 }
 
-const recordFilters = ['ALL', 'OTP', 'REJECTED', 'NOT_RUN', 'ERROR'] as const
+const recordFilters = ['ALL', 'OTP', 'REJECTED', 'SKIPPED', 'BACKPRESSURE', 'NOT_RUN', 'ERROR'] as const
 
 function decisionLabel(value: string) {
   if (value === 'OTP') return 'OTP'
   if (value === 'NOT_RUN') return 'Not run'
   if (value === 'SUPPRESSED') return 'Suppressed'
+  if (value === 'SKIPPED') return 'Skipped'
+  if (value === 'BACKPRESSURE') return 'Busy'
   if (value === 'ERROR') return 'Error'
   if (value === 'PENDING') return 'Pending'
   return 'Rejected'
@@ -815,6 +659,7 @@ function decisionLabel(value: string) {
 function DecisionIcon({ decision }: { decision: string }) {
   if (decision === 'OTP') return <CircleCheck aria-hidden="true" />
   if (decision === 'ERROR') return <AlertTriangle aria-hidden="true" />
+  if (decision === 'BACKPRESSURE') return <Clock aria-hidden="true" />
   if (decision === 'PENDING') return <Clock aria-hidden="true" />
   return <CircleX aria-hidden="true" />
 }
@@ -826,7 +671,7 @@ function RecordsView({
   developer: DeveloperDataStatus
   onDeveloperChange: (developer: DeveloperDataStatus) => void
 }) {
-  const { authenticated, error } = useDeveloperAuthentication(developer, onDeveloperChange)
+  const { authenticated, error, retry } = useDeveloperAuthentication(developer, onDeveloperChange)
   const [records, setRecords] = useState<NotificationRecordSummary[]>([])
   const [nextCursor, setNextCursor] = useState<number | null>(null)
   const [filter, setFilter] = useState<(typeof recordFilters)[number]>('ALL')
@@ -840,17 +685,14 @@ function RecordsView({
   }, [])
 
   useEffect(() => {
-    if (!authenticated) {
-      setRecords([])
-      setSelected(null)
-      setNextCursor(null)
-      return
-    }
+    if (!authenticated) return
+    // Loading native encrypted records is an external-system synchronization.
+    // oxlint-disable-next-line react/set-state-in-effect
     void load(filter)
   }, [authenticated, filter, load])
 
   if (!developer.unlocked) return <LockedDeveloperView />
-  if (!authenticated) return <AuthenticationView error={error} />
+  if (!authenticated) return <AuthenticationView error={error} onRetry={retry} />
   if (selected) return <main className="screen detail-screen"><RecordDetail record={selected} onBack={() => setSelected(null)} /></main>
 
   return <main className="screen detail-screen records-screen">
@@ -865,7 +707,7 @@ function RecordsView({
         try { setSelected(await needleBub.getNotificationRecord({ id: record.id })) } finally { setBusy(false) }
       })()}>
         <DecisionIcon decision={record.decision} />
-        <span><strong>{record.title || record.appLabel}</strong><small>{record.appLabel} · {new Date(record.capturedAt).toLocaleString()}</small></span>
+        <span><strong>{record.title || record.appLabel}</strong><small>{record.appLabel} · {record.revisionCount} {record.revisionCount === 1 ? 'revision' : 'revisions'} · {new Date(record.lastSeenAt).toLocaleString()}</small></span>
         <span className={`decision-text decision-text--${record.decision.toLowerCase()}`}>{decisionLabel(record.decision)}</span>
       </button>)}
       {records.length === 0 && <p className="empty-copy">No matching notification records.</p>}
@@ -881,7 +723,7 @@ function DataControlsView({
   developer: DeveloperDataStatus
   onDeveloperChange: (developer: DeveloperDataStatus) => void
 }) {
-  const { authenticated, error } = useDeveloperAuthentication(developer, onDeveloperChange)
+  const { authenticated, error, retry } = useDeveloperAuthentication(developer, onDeveloperChange)
   const [busy, setBusy] = useState(false)
   const [passphrase, setPassphrase] = useState('')
   const [deleteAfterExport, setDeleteAfterExport] = useState(true)
@@ -895,7 +737,7 @@ function DataControlsView({
   }, [developer.adbPullExpiresAt, refresh])
 
   if (!developer.unlocked) return <LockedDeveloperView />
-  if (!authenticated) return <AuthenticationView error={error} />
+  if (!authenticated) return <AuthenticationView error={error} onRetry={retry} />
 
   const toggleCapture = async (enabled: boolean) => {
     if (enabled && !window.confirm('Capture full notification text, model reasoning, calls, and outcomes locally?')) return
@@ -915,7 +757,9 @@ function DataControlsView({
     </div>
     <p className="sensitive-note">When enabled, full notification text and model output are encrypted locally for developer inspection.</p>
     <dl className="evidence-list">
-      <div><dt>Records</dt><dd>{developer.recordCount}</dd></div>
+      <div><dt>Logical records</dt><dd>{developer.recordCount}</dd></div>
+      <div><dt>Lifecycles</dt><dd>{developer.lifecycleCount}</dd></div>
+      <div><dt>Observed revisions</dt><dd>{developer.observedRevisionCount}</dd></div>
       <div><dt>Encrypted size</dt><dd>{Math.ceil(developer.storedBytes / 1024)} KiB</dd></div>
       <div><dt>Retention</dt><dd>30 days · 10,000 max</dd></div>
     </dl>
@@ -966,9 +810,12 @@ function LockedDeveloperView() {
   return <main className="screen detail-screen"><p className="inline-notice inline-notice--error">Developer Mode is locked.</p></main>
 }
 
-function AuthenticationView({ error }: { error: string | null }) {
+function AuthenticationView({ error, onRetry }: { error: string | null; onRetry: () => void }) {
   return <main className="screen detail-screen">
-    {error ? <p className="inline-notice inline-notice--error">{error}</p> : <p className="loading-line">Confirming device authentication…</p>}
+    {error ? <div className="inline-notice inline-notice--error">
+      <span>{error}</span>
+      <button className="secondary-action" onClick={onRetry}>Try again</button>
+    </div> : <p className="loading-line">Confirming device authentication…</p>}
   </main>
 }
 
@@ -984,6 +831,16 @@ function RecordDetail({ record, onBack }: { record: NotificationRecord; onBack: 
         <div><dt>Package</dt><dd><code>{record.packageName}</code></dd></div>
         <div><dt>Title</dt><dd>{record.title || 'None'}</dd></div>
         <div><dt>Message</dt><dd className="trace-message">{record.body || 'Empty'}</dd></div>
+      </dl>
+    </section>
+    <section>
+      <h2>Lifecycle</h2>
+      <dl className="trace-list">
+        <div><dt>Extraction</dt><dd>{record.extractionKind ?? 'Legacy record'}</dd></div>
+        <div><dt>First seen</dt><dd>{new Date(record.firstSeenAtEpochMs ?? record.capturedAtEpochMs).toLocaleString()}</dd></div>
+        <div><dt>Last seen</dt><dd>{new Date(record.lastSeenAtEpochMs ?? record.capturedAtEpochMs).toLocaleString()}</dd></div>
+        <div><dt>Revisions</dt><dd>{record.revisionCount ?? 1}</dd></div>
+        <div><dt>Superseded</dt><dd>{record.supersededCount ?? 0}</dd></div>
       </dl>
     </section>
     <section>
