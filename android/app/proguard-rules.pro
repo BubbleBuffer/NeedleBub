@@ -19,3 +19,14 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# JNI resolves these names directly from needle_jni.cpp.
+-keep class de.x0bubbuff.needlebub.runtime.NeedleNative {
+    native <methods>;
+}
+
+# Commons Compress exposes optional codecs that NeedleBub never accepts, and
+# EdDSA contains a desktop-JDK fallback unavailable on Android.
+-dontwarn com.github.luben.zstd.ZstdInputStream
+-dontwarn org.tukaani.xz.**
+-dontwarn sun.security.x509.X509Key

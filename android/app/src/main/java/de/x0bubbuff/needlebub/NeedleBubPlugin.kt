@@ -2,9 +2,9 @@ package de.x0bubbuff.needlebub
 
 import android.Manifest
 import android.app.Activity
-import android.app.KeyguardManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -30,6 +30,7 @@ import de.x0bubbuff.needlebub.gateway.ErrorCodes
 import de.x0bubbuff.needlebub.otp.OtpPostprocessor
 import de.x0bubbuff.needlebub.otp.OtpOutcome
 import de.x0bubbuff.needlebub.packs.PackManifest
+import de.x0bubbuff.needlebub.runtime.RuntimeAdmission
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -39,6 +40,7 @@ import java.net.URL
 import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 
 @CapacitorPlugin(
     name = "NeedleBub",
@@ -55,6 +57,16 @@ class NeedleBubPlugin : Plugin() {
         super.handleOnDestroy()
     }
 
+    // Capacitor can deliver a queued bridge invocation after the activity has closed.
+    // Refuse that invocation instead of crashing the process on executor shutdown.
+    private fun submitBackground(call: PluginCall, work: () -> Unit) {
+        try {
+            executor.execute { work() }
+        } catch (_: RejectedExecutionException) {
+            runCatching { call.reject("The app screen has closed", "ACTIVITY_CLOSED") }
+        }
+    }
+
     @PluginMethod
     fun status(call: PluginCall) {
         app.packUpdates.checkIfStale()
@@ -68,21 +80,58 @@ class NeedleBubPlugin : Plugin() {
             notificationPermission,
             automation.allApps || selected.isNotEmpty(),
         )
-        call.resolve(JSObject()
-            .put("otpPackInstalled", packInstalled)
-            .put("notificationAccess", notificationAccess)
-            .put("notificationPermission", notificationPermission)
-            .put("allApps", automation.allApps)
-            .put("selectedAppCount", selected.size)
-            .put("automaticOtpConfigured", configured)
-            .put("automaticOtpEnabled", automation.enabled)
-            .put("macroDroidInstalled", packageInstalled("com.arlosoft.macrodroid")))
+        call.resolve(statusJson(
+            packInstalled = packInstalled,
+            notificationAccess = notificationAccess,
+            notificationPermission = notificationPermission,
+            allApps = automation.allApps,
+            selectedAppCount = selected.size,
+            excludedAppCount = automation.excludedPackages.size,
+            configured = configured,
+            automaticOtpEnabled = automation.enabled,
+            autoCopyEnabled = automation.autoCopyEnabled,
+            dark = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES,
+            macroDroidInstalled = packageInstalled("com.arlosoft.macrodroid"),
+        ))
     }
+
+    /** The status payload the web layer reads; kept pure so it can be asserted directly. */
+    internal fun statusJson(
+        packInstalled: Boolean,
+        notificationAccess: Boolean,
+        notificationPermission: Boolean,
+        allApps: Boolean,
+        selectedAppCount: Int,
+        excludedAppCount: Int,
+        configured: Boolean,
+        automaticOtpEnabled: Boolean,
+        autoCopyEnabled: Boolean,
+        dark: Boolean,
+        macroDroidInstalled: Boolean,
+    ) = JSObject()
+        .put("otpPackInstalled", packInstalled)
+        .put("notificationAccess", notificationAccess)
+        .put("notificationPermission", notificationPermission)
+        .put("allApps", allApps)
+        .put("selectedAppCount", selectedAppCount)
+        .put("excludedAppCount", excludedAppCount)
+        .put("automaticOtpConfigured", configured)
+        .put("automaticOtpEnabled", automaticOtpEnabled)
+        .put("autoCopyEnabled", autoCopyEnabled)
+        .put("colorScheme", if (dark) "dark" else "light")
+        .put("macroDroidInstalled", macroDroidInstalled)
 
     @PluginMethod
     fun setAutomaticOtpEnabled(call: PluginCall) {
         val enabled = call.getBoolean("enabled") ?: return call.reject("enabled is required")
         automation.enabled = enabled
+        call.resolve()
+    }
+
+    @PluginMethod
+    fun setAutoCopyEnabled(call: PluginCall) {
+        val enabled = call.getBoolean("enabled") ?: return call.reject("enabled is required")
+        automation.autoCopyEnabled = enabled
         call.resolve()
     }
 
@@ -150,11 +199,15 @@ class NeedleBubPlugin : Plugin() {
                 passed,
                 errorCode,
                 response.durationMs,
-                response.coldLoad,
+                // The check always asks for a cold load, so an unknown state still means
+                // "a cold load was requested and did not complete".
+                response.coldLoad ?: true,
                 response.pssKb,
             ))
         }
-        if (!accepted) call.resolve(coldCheckResult(false, ErrorCodes.BUSY, 0L, true, 0L))
+        if (accepted == RuntimeAdmission.QUEUE_FULL) {
+            call.resolve(coldCheckResult(false, ErrorCodes.BUSY, 0L, true, 0L))
+        }
     }
 
     @PluginMethod
@@ -198,7 +251,7 @@ class NeedleBubPlugin : Plugin() {
         if (call == null) return
         val uri = result.data?.data
         if (result.resultCode != Activity.RESULT_OK || uri == null) return call.reject("No pack selected")
-        executor.execute {
+        submitBackground(call) {
             val temporary = File(context.cacheDir, "import-${UUID.randomUUID()}.nbpack")
             try {
                 context.contentResolver.openInputStream(uri)?.use { input -> temporary.outputStream().use { output -> copyBounded(input, output, MAX_ARCHIVE_BYTES) } }
@@ -215,7 +268,7 @@ class NeedleBubPlugin : Plugin() {
 
     @PluginMethod
     fun catalogue(call: PluginCall) {
-        executor.execute {
+        submitBackground(call) {
             try {
                 val raw = de.x0bubbuff.needlebub.updates.OfficialCatalogue(context).embedded().first
                 call.resolve(JSObject(raw.toString()))
@@ -266,18 +319,26 @@ class NeedleBubPlugin : Plugin() {
 
     @PluginMethod
     fun listNotificationApps(call: PluginCall) {
-        executor.execute {
+        submitBackground(call) {
             val launcher = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
             val selected = automation.selectedPackages
+            val excluded = automation.excludedPackages
             val apps = JSArray()
-            context.packageManager.queryIntentActivities(launcher, PackageManager.ResolveInfoFlags.of(0))
+            val launcherActivities = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.queryIntentActivities(launcher, PackageManager.ResolveInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.queryIntentActivities(launcher, 0)
+            }
+            launcherActivities
                 .distinctBy { it.activityInfo.packageName }
                 .sortedBy { it.loadLabel(context.packageManager).toString().lowercase() }
                 .forEach { info ->
                     apps.put(JSObject()
                         .put("packageName", info.activityInfo.packageName)
                         .put("label", info.loadLabel(context.packageManager).toString())
-                        .put("selected", info.activityInfo.packageName in selected))
+                        .put("selected", info.activityInfo.packageName in selected)
+                        .put("excluded", info.activityInfo.packageName in excluded))
                 }
             call.resolve(JSObject().put("apps", apps))
         }
@@ -286,10 +347,22 @@ class NeedleBubPlugin : Plugin() {
     @PluginMethod
     fun saveNotificationApps(call: PluginCall) {
         val packages = call.getArray("packages")?.toList<String>()?.toSet().orEmpty()
-        automation.selectedPackages = packages.filter { it.matches(Regex("^[A-Za-z0-9_.]+\$")) }.toSet()
-        automation.allApps = call.getBoolean("allApps", false) == true
+        val excludedInput = if (call.data.has("excludedPackages")) {
+            call.getArray("excludedPackages") ?: return call.reject("excludedPackages must be an array")
+        } else null
+        // Old callers omit excludedPackages: retain the stored list. [] clears it.
+        val settings = automation
+        settings.saveSources(
+            allApps = call.getBoolean("allApps", false) == true,
+            selectedPackages = validSourcePackages(packages),
+            excludedPackages = excludedInput?.toList<String>()?.toSet()?.let(::validSourcePackages)
+                ?: settings.excludedPackages,
+        )
         call.resolve()
     }
+
+    private fun validSourcePackages(packages: Set<String>): Set<String> =
+        packages.filterTo(mutableSetOf()) { it.matches(Regex("^[A-Za-z0-9_.]+\$")) }
 
     @PluginMethod
     fun developerDataStatus(call: PluginCall) {
@@ -299,6 +372,8 @@ class NeedleBubPlugin : Plugin() {
             .put("labAuthenticated", app.developerDataSettings.labAuthenticated)
             .put("captureEnabled", app.developerDataSettings.captureEnabled)
             .put("recordCount", summary.count)
+            .put("lifecycleCount", summary.lifecycleCount)
+            .put("observedRevisionCount", summary.observedRevisionCount)
             .put("storedBytes", summary.storedBytes)
             .put("oldestAt", summary.oldestAt ?: JSONObject.NULL)
             .put("adbPullExpiresAt", app.adbCaptureAccess.expiresAtEpochMs() ?: JSONObject.NULL))
@@ -374,7 +449,7 @@ class NeedleBubPlugin : Plugin() {
         if (!app.developerDataSettings.unlocked || !app.developerDataSettings.labAuthenticated) {
             return call.reject("Notification Lab authentication is required")
         }
-        executor.execute {
+        submitBackground(call) {
             val (records, nextCursor) = app.developerDataStore.captureSummaries(
                 call.getInt("limit", 30) ?: 30,
                 call.getLong("cursor"),
@@ -382,7 +457,7 @@ class NeedleBubPlugin : Plugin() {
             )
             if (!app.developerDataSettings.labAuthenticated) {
                 call.reject("Notification Lab authentication expired")
-                return@execute
+                return@submitBackground
             }
             call.resolve(JSObject()
                 .put("records", JSArray(records))
@@ -396,7 +471,7 @@ class NeedleBubPlugin : Plugin() {
             return call.reject("Notification Lab authentication is required")
         }
         val id = call.getString("id") ?: return call.reject("id is required")
-        executor.execute {
+        submitBackground(call) {
             val record = app.developerDataStore.capture(id)
             if (!app.developerDataSettings.labAuthenticated) {
                 call.reject("Notification Lab authentication expired")
@@ -427,19 +502,18 @@ class NeedleBubPlugin : Plugin() {
         if (!app.developerDataSettings.unlocked) return call.reject("Developer data is locked")
         val passphrase = call.getString("passphrase") ?: return call.reject("passphrase is required")
         if (passphrase.length < 12) return call.reject("Passphrase must contain at least 12 characters")
-        requireDeviceAuthentication(call, "Export captured notifications", "Confirm before decrypting the local capture", "captureExportAuthenticated")
-    }
-
-    @ActivityCallback
-    private fun captureExportAuthenticated(call: PluginCall?, result: ActivityResult) {
-        if (call == null) return
-        if (result.resultCode != Activity.RESULT_OK) return call.reject("Device authentication was cancelled")
-        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "application/octet-stream"
-            putExtra(Intent.EXTRA_TITLE, "needlebub-${System.currentTimeMillis()}.nbcapture")
+        requireDeviceAuthentication(
+            call,
+            "Export captured notifications",
+            "Confirm before decrypting the local capture",
+        ) {
+            val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "application/octet-stream"
+                putExtra(Intent.EXTRA_TITLE, "needlebub-${System.currentTimeMillis()}.nbcapture")
+            }
+            startActivityForResult(call, intent, "captureExportPicked")
         }
-        startActivityForResult(call, intent, "captureExportPicked")
     }
 
     @ActivityCallback
@@ -449,7 +523,7 @@ class NeedleBubPlugin : Plugin() {
         if (result.resultCode != Activity.RESULT_OK || uri == null) return call.reject("No export location selected")
         val passphrase = call.getString("passphrase")?.toCharArray() ?: return call.reject("passphrase is required")
         val deleteAfterExport = call.getBoolean("deleteAfterExport", true) == true
-        executor.execute {
+        submitBackground(call) {
             try {
                 val (payload, count) = app.developerDataStore.encryptedExport(passphrase)
                 context.contentResolver.openOutputStream(uri, "w")?.use { it.write(payload) }
@@ -467,14 +541,13 @@ class NeedleBubPlugin : Plugin() {
     @PluginMethod
     fun clearNotificationCapture(call: PluginCall) {
         if (!app.developerDataSettings.unlocked) return call.reject("Developer data is locked")
-        requireDeviceAuthentication(call, "Clear captured notifications", "This permanently removes the encrypted capture", "captureClearAuthenticated")
-    }
-
-    @ActivityCallback
-    private fun captureClearAuthenticated(call: PluginCall?, result: ActivityResult) {
-        if (call == null) return
-        if (result.resultCode != Activity.RESULT_OK) return call.reject("Device authentication was cancelled")
-        call.resolve(JSObject().put("removed", app.developerDataStore.clearCaptures()))
+        requireDeviceAuthentication(
+            call,
+            "Clear captured notifications",
+            "This permanently removes the encrypted capture",
+        ) {
+            call.resolve(JSObject().put("removed", app.developerDataStore.clearCaptures()))
+        }
     }
 
     @PluginMethod
@@ -519,11 +592,15 @@ class NeedleBubPlugin : Plugin() {
             .put("todayOtp", summary.todayOtp)
             .put("todayRejected", summary.todayRejected)
             .put("todayErrors", summary.todayErrors)
+            .put("todaySkipped", summary.todaySkipped)
+            .put("todayBackpressure", summary.todayBackpressure)
             .put("todaySuppressed", summary.todaySuppressed)
             .put("todayNotRun", summary.todayNotRun)
             .put("totalOtp", summary.totalOtp)
             .put("totalRejected", summary.totalRejected)
             .put("totalErrors", summary.totalErrors)
+            .put("totalSkipped", summary.totalSkipped)
+            .put("totalBackpressure", summary.totalBackpressure)
             .put("totalSuppressed", summary.totalSuppressed)
             .put("totalNotRun", summary.totalNotRun)
             .put("completedInferenceCount", summary.completedInferenceCount)
@@ -558,12 +635,49 @@ class NeedleBubPlugin : Plugin() {
             .put("privacy", if (app.developerDataSettings.captureEnabled) "Developer capture is storing encrypted notification records locally" else "Inputs and results are memory-only"))
     }
 
-    private fun requireDeviceAuthentication(call: PluginCall, title: String, description: String, callback: String) {
-        val manager = context.getSystemService(KeyguardManager::class.java)
-        if (!manager.isDeviceSecure) return call.reject("A secure device lock is required")
-        val intent = manager.createConfirmDeviceCredentialIntent(title, description)
-            ?: return call.reject("Device authentication is unavailable")
-        startActivityForResult(call, intent, callback)
+    private fun requireDeviceAuthentication(
+        call: PluginCall,
+        title: String,
+        description: String,
+        onSuccess: () -> Unit,
+    ) {
+        val host = activity as? FragmentActivity
+            ?: return call.reject("Authentication host is unavailable")
+        val authenticators = BiometricManager.Authenticators.BIOMETRIC_STRONG or
+            BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        if (BiometricManager.from(context).canAuthenticate(authenticators) != BiometricManager.BIOMETRIC_SUCCESS) {
+            return call.reject("A secure device lock or strong biometric is required")
+        }
+        host.runOnUiThread {
+            if (host.isFinishing || host.isDestroyed) {
+                call.reject("Authentication host is unavailable")
+                return@runOnUiThread
+            }
+            val prompt = BiometricPrompt(
+                host,
+                ContextCompat.getMainExecutor(context),
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        onSuccess()
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        call.reject(
+                            if (errorCode == BiometricPrompt.ERROR_USER_CANCELED) {
+                                "Device authentication was cancelled"
+                            } else {
+                                errString.toString()
+                            },
+                        )
+                    }
+                },
+            )
+            prompt.authenticate(BiometricPrompt.PromptInfo.Builder()
+                .setTitle(title)
+                .setDescription(description)
+                .setAllowedAuthenticators(authenticators)
+                .build())
+        }
     }
 
     private fun coldCheckResult(

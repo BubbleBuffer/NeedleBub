@@ -14,17 +14,21 @@ class FeatureActivityLedgerTest {
         buckets = ledger.record(buckets, epochDay = 100, occurredAt = 10_000, decision = "OTP", durationMs = 700)
         buckets = ledger.record(buckets, epochDay = 100, occurredAt = 11_000, decision = "REJECTED", durationMs = 500)
         buckets = ledger.record(buckets, epochDay = 100, occurredAt = 12_000, decision = "ERROR", durationMs = null)
+        buckets = ledger.record(buckets, epochDay = 100, occurredAt = 13_000, decision = "SKIPPED", durationMs = null)
+        buckets = ledger.record(buckets, epochDay = 100, occurredAt = 14_000, decision = "BACKPRESSURE", durationMs = null)
         buckets = ledger.record(buckets, epochDay = 99, occurredAt = 9_000, decision = "NOT_RUN", durationMs = null)
         val summary = ledger.summary("otp", buckets, todayEpochDay = 100, days = 7)
 
         assertEquals(1, summary.todayOtp)
         assertEquals(1, summary.todayRejected)
         assertEquals(1, summary.todayErrors)
+        assertEquals(1, summary.todaySkipped)
+        assertEquals(1, summary.todayBackpressure)
         assertEquals(0, summary.todayNotRun)
         assertEquals(1, summary.totalNotRun)
         assertEquals(2, summary.completedInferenceCount)
         assertEquals(600L, summary.averageDurationMs)
-        assertEquals(12_000L, summary.lastActivityAt)
+        assertEquals(14_000L, summary.lastActivityAt)
     }
 
     @Test
@@ -55,6 +59,8 @@ class FeatureActivityLedgerTest {
             "otp",
             "rejected",
             "errors",
+            "skipped",
+            "backpressure",
             "suppressed",
             "notRun",
             "completedInferenceCount",

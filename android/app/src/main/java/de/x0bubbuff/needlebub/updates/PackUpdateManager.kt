@@ -7,6 +7,7 @@ import de.x0bubbuff.needlebub.packs.PackStore
 import de.x0bubbuff.needlebub.otp.OtpOutcome
 import de.x0bubbuff.needlebub.otp.OtpPostprocessor
 import de.x0bubbuff.needlebub.runtime.RuntimeBroker
+import de.x0bubbuff.needlebub.runtime.RuntimeAdmission
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -144,7 +145,9 @@ class PackUpdateManager(context: Context, private val packStore: PackStore, priv
             response = it
             latch.countDown()
         }
-        if (!accepted || !latch.await(HEALTH_TIMEOUT_MS + 1_000L, TimeUnit.MILLISECONDS)) return null
+        if (accepted == RuntimeAdmission.QUEUE_FULL ||
+            !latch.await(HEALTH_TIMEOUT_MS + 1_000L, TimeUnit.MILLISECONDS)
+        ) return null
         return response
     }
 

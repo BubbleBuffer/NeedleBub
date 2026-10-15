@@ -3,7 +3,14 @@ apply plugin: 'org.jetbrains.kotlin.android'
 apply plugin: 'kotlin-parcelize'
 
 def emulatorRuntimeStub = providers.gradleProperty('needlebubEmulatorRuntimeStub').orNull == 'true'
-
+def releaseSigningPropertiesFile = new File(
+    System.getenv('NEEDLEBUB_SIGNING_PROPERTIES') ?:
+        new File(System.getenv('USERPROFILE') ?: System.getProperty('user.home'), '.config/needlebub/release/signing.properties').absolutePath
+)
+def releaseSigningProperties = new Properties()
+if (releaseSigningPropertiesFile.isFile()) {
+    releaseSigningPropertiesFile.withInputStream { releaseSigningProperties.load(it) }
+}
 // versionCode rises on every build (minutes since epoch) unless -PversionCode is given.
 def buildMinute = System.currentTimeMillis().intdiv(60000L)
 def versionCodeOverride = providers.gradleProperty('versionCode').orNull
@@ -24,7 +31,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode Integer.parseInt((versionCodeOverride ?: buildMinute).toString())
-        versionName "0.1.0-alpha.7"
+        versionName "0.1.0-beta.3"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         ndk {
             abiFilters emulatorRuntimeStub ? 'x86_64' : 'arm64-v8a'
@@ -56,12 +63,30 @@ android {
     }
     buildTypes {
         release {
-            // The private alpha uses Android's local debug identity. Replace this
-            // with the long-lived BubbleBuffer key before any broader channel.
-            signingConfig signingConfigs.debug
+            if (!releaseSigningProperties.isEmpty()) {
+                signingConfig = signingConfigs.create('privateBeta') {
+                    storeFile = file(releaseSigningProperties.getProperty('storeFile'))
+                    storePassword = releaseSigningProperties.getProperty('storePassword')
+                    keyAlias = releaseSigningProperties.getProperty('keyAlias')
+                    keyPassword = releaseSigningProperties.getProperty('keyPassword')
+                }
+            }
             debuggable false
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+        }
+    }
+}
+
+tasks.configureEach { task ->
+    if (task.name.matches(/(?i).*(assemble|bundle|package).*Release.*/)) {
+        task.doFirst {
+            if (!releaseSigningPropertiesFile.isFile()) {
+                throw new GradleException(
+                    "NeedleBub release signing is not configured. Expected ${releaseSigningPropertiesFile}."
+                )
+            }
         }
     }
 }

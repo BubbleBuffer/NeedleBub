@@ -11,6 +11,8 @@ data class FeatureActivityBucket(
     val otp: Int = 0,
     val rejected: Int = 0,
     val errors: Int = 0,
+    val skipped: Int = 0,
+    val backpressure: Int = 0,
     val suppressed: Int = 0,
     val notRun: Int = 0,
     val completedInferenceCount: Int = 0,
@@ -24,11 +26,15 @@ data class FeatureActivitySummary(
     val todayOtp: Int,
     val todayRejected: Int,
     val todayErrors: Int,
+    val todaySkipped: Int,
+    val todayBackpressure: Int,
     val todaySuppressed: Int,
     val todayNotRun: Int,
     val totalOtp: Int,
     val totalRejected: Int,
     val totalErrors: Int,
+    val totalSkipped: Int,
+    val totalBackpressure: Int,
     val totalSuppressed: Int,
     val totalNotRun: Int,
     val completedInferenceCount: Int,
@@ -61,6 +67,8 @@ class FeatureActivityLedger(
             otp = current.otp + if (decision == "OTP") 1 else 0,
             rejected = current.rejected + if (decision == "REJECTED") 1 else 0,
             errors = current.errors + if (decision == "ERROR") 1 else 0,
+            skipped = current.skipped + if (decision == "SKIPPED") 1 else 0,
+            backpressure = current.backpressure + if (decision == "BACKPRESSURE") 1 else 0,
             suppressed = current.suppressed + if (decision == "SUPPRESSED") 1 else 0,
             notRun = current.notRun + if (decision == "NOT_RUN") 1 else 0,
             completedInferenceCount = current.completedInferenceCount + if (completed) 1 else 0,
@@ -89,11 +97,15 @@ class FeatureActivityLedger(
             todayOtp = today?.otp ?: 0,
             todayRejected = today?.rejected ?: 0,
             todayErrors = today?.errors ?: 0,
+            todaySkipped = today?.skipped ?: 0,
+            todayBackpressure = today?.backpressure ?: 0,
             todaySuppressed = today?.suppressed ?: 0,
             todayNotRun = today?.notRun ?: 0,
             totalOtp = retained.sumOf { it.otp },
             totalRejected = retained.sumOf { it.rejected },
             totalErrors = retained.sumOf { it.errors },
+            totalSkipped = retained.sumOf { it.skipped },
+            totalBackpressure = retained.sumOf { it.backpressure },
             totalSuppressed = retained.sumOf { it.suppressed },
             totalNotRun = retained.sumOf { it.notRun },
             completedInferenceCount = completed,
@@ -109,7 +121,15 @@ class FeatureActivityLedger(
 
     companion object {
         const val DEFAULT_RETENTION_DAYS = 7
-        private val TRACKED_DECISIONS = setOf("OTP", "REJECTED", "ERROR", "SUPPRESSED", "NOT_RUN")
+        private val TRACKED_DECISIONS = setOf(
+            "OTP",
+            "REJECTED",
+            "ERROR",
+            "SKIPPED",
+            "BACKPRESSURE",
+            "SUPPRESSED",
+            "NOT_RUN",
+        )
     }
 }
 
@@ -162,6 +182,8 @@ class FeatureActivityStore(
                         otp = item.optInt("otp"),
                         rejected = item.optInt("rejected"),
                         errors = item.optInt("errors"),
+                        skipped = item.optInt("skipped"),
+                        backpressure = item.optInt("backpressure"),
                         suppressed = item.optInt("suppressed"),
                         notRun = item.optInt("notRun"),
                         completedInferenceCount = item.optInt("completedInferenceCount"),
@@ -183,6 +205,8 @@ class FeatureActivityStore(
                 .put("otp", bucket.otp)
                 .put("rejected", bucket.rejected)
                 .put("errors", bucket.errors)
+                .put("skipped", bucket.skipped)
+                .put("backpressure", bucket.backpressure)
                 .put("suppressed", bucket.suppressed)
                 .put("notRun", bucket.notRun)
                 .put("completedInferenceCount", bucket.completedInferenceCount)
