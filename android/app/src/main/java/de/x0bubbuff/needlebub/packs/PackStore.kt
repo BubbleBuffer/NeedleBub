@@ -9,22 +9,31 @@ class PackStore(context: Context) {
     private val root = File(appContext.filesDir, "packs")
     private val preferences = appContext.getSharedPreferences("pack_sources", Context.MODE_PRIVATE)
 
+    /** Packs this engine can run. Packs built for another engine ABI are never returned. */
     @Synchronized
-    fun list(): List<InstalledPack> {
+    fun list(): List<InstalledPack> = scan()
+        .filter { PackCompatibility.isEngineCompatible(it.manifest) }
+        .sortedWith(compareBy<InstalledPack> { it.manifest.name }.thenComparator { left, right ->
+            SemanticVersion.parse(right.manifest.version).compareTo(SemanticVersion.parse(left.manifest.version))
+        })
+
+    /** True when an installed pack for [capabilityId] on [surface] exists but targets another engine ABI. */
+    @Synchronized
+    fun hasIncompatiblePack(capabilityId: String, surface: String): Boolean =
+        scan().any { PackCompatibility.isIncompatible(it.manifest, capabilityId, surface) }
+
+    private fun scan(): List<InstalledPack> {
         if (!root.isDirectory) return emptyList()
         return root.listFiles().orEmpty().filter(File::isDirectory).flatMap { packRoot ->
             packRoot.listFiles().orEmpty().filter(File::isDirectory).mapNotNull { versionRoot ->
                 try {
                     val manifest = PackManifest.parse(File(versionRoot, "manifest.json").readText())
-                    if (manifest.engineAbi != PackManifest.ENGINE_ABI) null
-                    else InstalledPack(manifest, versionRoot, preferences.getBoolean(key(manifest), false))
+                    InstalledPack(manifest, versionRoot, preferences.getBoolean(key(manifest), false))
                 } catch (_: Exception) {
                     null
                 }
             }
-        }.sortedWith(compareBy<InstalledPack> { it.manifest.name }.thenComparator { left, right ->
-            SemanticVersion.parse(right.manifest.version).compareTo(SemanticVersion.parse(left.manifest.version))
-        })
+        }
     }
 
     @Synchronized

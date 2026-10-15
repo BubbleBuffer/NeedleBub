@@ -14,13 +14,18 @@ class PackManifestTest {
           "author": "BubbleBuffer",
           "description": "Extracts one-time authentication codes.",
           "license": "Apache-2.0",
-          "engine": {"abi": "needle2-hf-98fbd955b0347e78059be0c253cc1ffa09b87bc7-android-arm64"},
+          "engine": {"abi": "needle3-hf-0f51a1ac2917a03644c4cc7836f19476c6d177dd-android-arm64"},
           "model": {"path": "model.cact", "size": 12, "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
           "queryTemplate": "{{input}}",
           "surfaces": ["external", "notification"],
           "outputs": {"nb_code": {"type": "string", "pointer": "/code"}}
         }
     """.trimIndent()
+
+    @Test
+    fun `pins the Needle 3 engine ABI`() {
+        assertEquals("needle3-hf-0f51a1ac2917a03644c4cc7836f19476c6d177dd-android-arm64", PackManifest.ENGINE_ABI)
+    }
 
     @Test
     fun `parses the bounded v1 manifest`() {

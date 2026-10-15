@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Moved the app to the hash-pinned Needle 3 ARM64 runtime. Needle 2 packs are
+  rejected as incompatible and cannot enter native inference.
+- Staged OTP pack `1.0.0-alpha.3` with OTPNeedle v3.2, the trained
+  `otp-needle3-v1` tool schema and `Message: {{input}}` query rendering.
+- Preserved UTF-8 across JNI, including emoji, and guarded archive loading,
+  initialization, reset and bounded native output.
+- Added an explicit unsigned review build on build01; normal release signing
+  still requires the owner's existing signing configuration.
+
 ## 0.1.0-beta.2
 
 - Hardened developer capture exports against disconnected readers and expired

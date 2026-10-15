@@ -1,8 +1,8 @@
 {
-  "repository": "Cactus-Compute/needle2",
-  "revision": "98fbd955b0347e78059be0c253cc1ffa09b87bc7",
+  "repository": "Cactus-Compute/needle3",
+  "revision": "0f51a1ac2917a03644c4cc7836f19476c6d177dd",
   "platform": "android-arm64",
-  "engineAbi": "needle2-hf-98fbd955b0347e78059be0c253cc1ffa09b87bc7-android-arm64",
-  "libneedleSha256": "a1333d28c57a35d33b4a0fb688706573dac56d851dea467771480f745f59f9f6",
-  "headerSha256": "cb7a720eba7bc895b5bbfa5d6f6fc635906938fdc569eb2520a2c09ba06d9eed"
+  "engineAbi": "needle3-hf-0f51a1ac2917a03644c4cc7836f19476c6d177dd-android-arm64",
+  "libneedleSha256": "5e0a5daaadca1fbe1c518110bee6bbb1cc97a5e53a16a1e964d0af0186eac60a",
+  "headerSha256": "3aa713942528d944598458cecb4a262f2cc49349bec63355f91df0b159964e55"
 }

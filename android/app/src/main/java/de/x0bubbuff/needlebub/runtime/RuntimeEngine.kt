@@ -1,5 +1,7 @@
 package de.x0bubbuff.needlebub.runtime
 
+import de.x0bubbuff.needlebub.packs.PackManifest
+
 /**
  * Native engine seam.
  *
@@ -22,13 +24,19 @@ interface RuntimeEngine {
 }
 
 object NeedleNativeEngine : RuntimeEngine {
-    override fun load(fd: Int, size: Long): Int = NeedleNative.load(fd, size)
+    /** Returned by [load] when the native engine ABI differs from the pack's engine ABI. */
+    const val ABI_MISMATCH = -10
+
+    override fun load(fd: Int, size: Long): Int {
+        if (NeedleNative.nativeAbi() != PackManifest.ENGINE_ABI) return ABI_MISMATCH
+        return NeedleNative.load(fd, size)
+    }
 
     override fun initialize(systemPrompt: String, toolsJson: String): Int =
-        NeedleNative.initialize(systemPrompt, toolsJson)
+        NeedleNative.initialize(systemPrompt.toByteArray(Charsets.UTF_8), toolsJson.toByteArray(Charsets.UTF_8))
 
     override fun complete(input: String, maxTokens: Int, capacity: Int): String? =
-        NeedleNative.complete(input, maxTokens, capacity)
+        NeedleNative.complete(input.toByteArray(Charsets.UTF_8), maxTokens, capacity)?.toString(Charsets.UTF_8)
 
     override fun rewind() = NeedleNative.rewind()
 

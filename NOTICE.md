@@ -1,6 +1,6 @@
 # Third-party notices
 
-NeedleBub uses the Needle runtime from `Cactus-Compute/needle2`, pinned in
+NeedleBub uses the Needle runtime from `Cactus-Compute/needle3`, pinned in
 `android/app/src/main/cpp/vendor/needle/UPSTREAM.json`, under Apache-2.0.
 
 The MacroDroid integration implements the Locale plug-in protocol constants

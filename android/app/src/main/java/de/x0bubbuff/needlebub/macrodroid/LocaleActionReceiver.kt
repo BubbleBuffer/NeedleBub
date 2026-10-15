@@ -28,7 +28,8 @@ class LocaleActionReceiver : BroadcastReceiver() {
         val pack = app.packStore.findExternal(capabilityId)
         if (pack == null) {
             app.macroLimiter.finish(MACRO_RATE_KEY)
-            finish(pending, mapOf("nb_matched" to "false", "nb_error_code" to ErrorCodes.PACK_NOT_FOUND))
+            val code = if (app.packStore.hasIncompatiblePack(capabilityId, "external")) ErrorCodes.ENGINE_INCOMPATIBLE else ErrorCodes.PACK_NOT_FOUND
+            finish(pending, mapOf("nb_matched" to "false", "nb_error_code" to code))
             return
         }
         val requestId = "macro-${UUID.randomUUID()}"

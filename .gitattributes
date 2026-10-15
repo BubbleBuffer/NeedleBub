@@ -1,0 +1,3 @@
+# Preserve the exact upstream bytes checked by CMake on every platform.
+android/app/src/main/cpp/vendor/needle/needle.h text eol=lf
+android/app/src/main/cpp/vendor/needle/libneedle.a -text

@@ -30,6 +30,7 @@ import de.x0bubbuff.needlebub.gateway.ErrorCodes
 import de.x0bubbuff.needlebub.otp.OtpPostprocessor
 import de.x0bubbuff.needlebub.otp.OtpOutcome
 import de.x0bubbuff.needlebub.packs.PackManifest
+import de.x0bubbuff.needlebub.packs.PackStore
 import de.x0bubbuff.needlebub.runtime.RuntimeAdmission
 import org.json.JSONArray
 import org.json.JSONObject
@@ -169,15 +170,20 @@ class NeedleBubPlugin : Plugin() {
     fun runColdModelCheck(call: PluginCall) {
         val pack = app.packStore.officialOtp()
         if (pack == null) {
-            call.resolve(coldCheckResult(false, ErrorCodes.PACK_NOT_FOUND, 0L, true, 0L))
+            val code = if (app.packStore.hasIncompatiblePack(PackStore.OFFICIAL_OTP_ID, "notification")) {
+                ErrorCodes.ENGINE_INCOMPATIBLE
+            } else {
+                ErrorCodes.PACK_NOT_FOUND
+            }
+            call.resolve(coldCheckResult(false, code, 0L, true, 0L))
             return
         }
-        val query = OtpPostprocessor.formatQuery(CHECK_SENDER, CHECK_MESSAGE)
+        val query = pack.manifest.queryTemplate.replace("{{input}}", CHECK_MESSAGE)
         val requestId = "check-${UUID.randomUUID()}"
         val accepted = app.runtime.infer(
             requestId,
             pack,
-            query,
+            CHECK_MESSAGE,
             COLD_CHECK_TIMEOUT_MS,
             surface = "check",
             forceReload = true,
@@ -759,7 +765,6 @@ class NeedleBubPlugin : Plugin() {
     private companion object {
         const val MACRODROID_PACKAGE = "com.arlosoft.macrodroid"
         const val COLD_CHECK_TIMEOUT_MS = 5_000L
-        const val CHECK_SENDER = "Needle Bank"
         const val CHECK_CODE = "739241"
         const val CHECK_MESSAGE = "Your login code is $CHECK_CODE. It expires in 10 minutes."
         val ALLOWED_ARTIFACT_HOSTS = setOf("github.com", "objects.githubusercontent.com", "huggingface.co", "cdn-lfs.hf.co", "cas-bridge.xethub.hf.co")

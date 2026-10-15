@@ -40,7 +40,7 @@ class OfficialCatalogueParserTest {
           "url": "https://github.com/BubbleBuffer/NeedleBub/releases/download/otp-v$version/otp.nbpack",
           "size": 100,
           "sha256": "${"a".repeat(64)}",
-          "engineAbi": "needle2-hf-98fbd955b0347e78059be0c253cc1ffa09b87bc7-android-arm64"
+          "engineAbi": "needle3-hf-0f51a1ac2917a03644c4cc7836f19476c6d177dd-android-arm64"
         }
     """.trimIndent()
 }

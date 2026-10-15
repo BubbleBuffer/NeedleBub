@@ -40,6 +40,18 @@ class NbPackArchiveTest {
         assertRejected(destination, archive(*validEntries(model, manifest("different".toByteArray()))))
     }
 
+    @Test
+    fun `rejects a pack built for the exact Needle 2 engine ABI`() {
+        val model = "needle-model".toByteArray()
+        val needle2Abi = "needle2-hf-98fbd955b0347e78059be0c253cc1ffa09b87bc7-android-arm64"
+        val needle2Manifest = String(manifest(model)).replace(PackManifest.ENGINE_ABI, needle2Abi).toByteArray()
+
+        val error = assertThrows(PackValidationException::class.java) {
+            NbPackArchive.install(archive(*validEntries(model, needle2Manifest)), temporary.newFolder("needle2"), verified = false)
+        }
+        assertEquals("incompatible Needle engine ABI", error.message)
+    }
+
     private fun assertRejected(destination: File, archive: File) {
         assertThrows(PackValidationException::class.java) {
             NbPackArchive.install(archive, destination, verified = false)

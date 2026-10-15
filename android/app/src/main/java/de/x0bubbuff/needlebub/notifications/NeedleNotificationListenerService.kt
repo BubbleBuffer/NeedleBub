@@ -145,7 +145,8 @@ class NeedleNotificationListenerService : NotificationListenerService() {
             return
         }
 
-        val query = OtpPostprocessor.formatQuery(candidate.sender, candidate.body)
+        // Inference takes the raw body; capture and grounding use the exact rendered query.
+        val query = pack.manifest.queryTemplate.replace("{{input}}", candidate.body)
         val requestId = "notification-${UUID.randomUUID()}"
         coordinator.submit(NotificationInferenceWork(
             notificationKey = lifecycleKey,
@@ -153,7 +154,7 @@ class NeedleNotificationListenerService : NotificationListenerService() {
                 app.runtime.infer(
                     requestId,
                     pack,
-                    query,
+                    candidate.body,
                     NOTIFICATION_TIMEOUT_MS,
                     surface = "notification",
                     callback = callback,

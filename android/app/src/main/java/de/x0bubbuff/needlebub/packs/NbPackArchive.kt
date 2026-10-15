@@ -116,7 +116,8 @@ object NbPackArchive {
         return name
     }
 
-    private fun validateTools(raw: String) {
+    @Throws(PackValidationException::class)
+    internal fun validateTools(raw: String) {
         val json = JSONObject(raw)
         val keys = json.keys().asSequence().toSet()
         if (keys != setOf("formatVersion", "tools") || json.getInt("formatVersion") != 1) invalid("invalid tools format")

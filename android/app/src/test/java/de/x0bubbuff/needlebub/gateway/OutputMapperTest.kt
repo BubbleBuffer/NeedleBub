@@ -18,4 +18,16 @@ class OutputMapperTest {
         assertEquals("123456", values["nb_code"])
         assertEquals("2", values["nb_count"])
     }
+
+    @Test
+    fun `omits a declared output whose optional source is missing from the call`() {
+        val manifest = PackManifest.parse("""
+            {"formatVersion":1,"id":"de.x0bubbuff.needlebub.test","version":"1.0.0","name":"Test","author":"BubbleBuffer","description":"Test pack","license":"MIT","engine":{"abi":"${PackManifest.ENGINE_ABI}"},"model":{"path":"model.cact","size":1,"sha256":"${"a".repeat(64)}"},"queryTemplate":"Message: {{input}}","surfaces":["external"],"outputs":{"nb_code":{"type":"string","pointer":"/code"},"nb_source":{"type":"string","pointer":"/source","optional":true}}}
+        """.trimIndent())
+
+        val values = OutputMapper.map(manifest, true, "extract_otp", """{"code":"0042"}""", null)
+        assertEquals("true", values["nb_matched"])
+        assertEquals("0042", values["nb_code"])
+        assertEquals(false, values.containsKey("nb_source"))
+    }
 }

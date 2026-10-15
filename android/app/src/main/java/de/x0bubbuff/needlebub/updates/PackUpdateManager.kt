@@ -124,13 +124,13 @@ class PackUpdateManager(context: Context, private val packStore: PackStore, priv
     }
 
     private fun healthCheck(pack: InstalledPack): Boolean {
-        val positiveQuery = OtpPostprocessor.formatQuery(CHECK_SENDER, CHECK_MESSAGE)
-        val positive = infer(pack, positiveQuery, forceReload = true) ?: return false
+        val positiveQuery = pack.manifest.queryTemplate.replace("{{input}}", CHECK_MESSAGE)
+        val positive = infer(pack, CHECK_MESSAGE, forceReload = true) ?: return false
         if (positive.status != "OK" || positive.toolName != "extract_otp" || positive.resultJson == null) return false
         val calls = JSONArray().put(JSONObject().put("name", positive.toolName).put("arguments", JSONObject(positive.resultJson)))
         val accepted = OtpPostprocessor.process(positiveQuery, calls.toString())
         if (accepted !is OtpOutcome.Accepted || accepted.result.code != CHECK_CODE) return false
-        val negative = infer(pack, OtpPostprocessor.formatQuery("YouTube", "Avoiding Bot Detection by User0332"), forceReload = false)
+        val negative = infer(pack, "Avoiding Bot Detection by User0332", forceReload = false)
             ?: return false
         return negative.status == "NO_MATCH"
     }
@@ -194,7 +194,6 @@ class PackUpdateManager(context: Context, private val packStore: PackStore, priv
     private companion object {
         const val FOREGROUND_STALE_MS = 6L * 60L * 60L * 1_000L
         const val HEALTH_TIMEOUT_MS = 8_000L
-        const val CHECK_SENDER = "Needle Bank"
         const val CHECK_CODE = "739241"
         const val CHECK_MESSAGE = "Your login code is $CHECK_CODE. It expires in 10 minutes."
     }

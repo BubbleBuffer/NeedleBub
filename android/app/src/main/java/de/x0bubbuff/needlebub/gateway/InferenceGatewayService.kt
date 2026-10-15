@@ -61,7 +61,8 @@ class InferenceGatewayService : Service() {
                 val pack = packStore.findExternal(request.capabilityId)
                 if (pack == null) {
                     limiter.finish(uid)
-                    deliver(callback, errorResponse(request, ErrorCodes.PACK_NOT_FOUND))
+                    val code = if (packStore.hasIncompatiblePack(request.capabilityId, "external")) ErrorCodes.ENGINE_INCOMPATIBLE else ErrorCodes.PACK_NOT_FOUND
+                    deliver(callback, errorResponse(request, code))
                     return
                 }
                 val internalId = "$uid:${request.requestId}"

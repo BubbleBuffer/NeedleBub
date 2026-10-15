@@ -1,20 +1,20 @@
 {
   "formatVersion": 1,
   "id": "de.x0bubbuff.needlebub.otp",
-  "version": "1.0.0-alpha.2",
+  "version": "1.0.0-alpha.3",
   "name": "OTP Extractor",
   "author": "BubbleBuffer",
   "description": "Extracts one-time authentication codes and their visible source from notification text.",
   "license": "Apache-2.0",
   "engine": {
-    "abi": "needle2-hf-98fbd955b0347e78059be0c253cc1ffa09b87bc7-android-arm64"
+    "abi": "needle3-hf-0f51a1ac2917a03644c4cc7836f19476c6d177dd-android-arm64"
   },
   "model": {
     "path": "model.cact",
-    "size": 23174991,
-    "sha256": "3268ef45dbce50778c7f67cc26baaa8cc4a7745011c5e228fa4b8bfd05beb04e"
+    "size": 63437076,
+    "sha256": "04cc13bda988325b2dbfe5a43a7b88a5edc47a0c3170e5373f5043106df01163"
   },
-  "queryTemplate": "{{input}}",
+  "queryTemplate": "Message: {{input}}",
   "surfaces": ["external", "notification"],
   "outputs": {
     "nb_code": {"type": "string", "pointer": "/code"},

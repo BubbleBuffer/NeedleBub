@@ -3,23 +3,24 @@
   "tools": [
     {
       "name": "extract_otp",
-      "description": "Call only when the notification or message contains an actual one-time authentication code. Otherwise do not call. Return the grounded code and source.",
+      "description": "Extracts the one-time authentication code from an SMS or notification.",
       "parameters": {
         "type": "object",
         "properties": {
           "code": {
             "type": "string",
-            "description": "The one-time code exactly as written in the message.",
-            "pattern": "^[A-Za-z0-9]{4,8}$"
+            "description": "The code exactly as written; 4-8 letters or digits, including leading zeroes."
           },
           "source": {
             "type": "string",
-            "description": "The service or sender exactly as evidenced by the input.",
+            "description": "The service or sender exactly as written.",
             "minLength": 1,
             "maxLength": 80
           }
         },
-        "required": ["code"]
+        "required": [
+          "code"
+        ]
       }
     }
   ]

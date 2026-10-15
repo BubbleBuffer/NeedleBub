@@ -1,0 +1,127 @@
+# Branch-scoped unsigned preview build for the needle3-engine branch.
+# Builds and tests only. Never signs, publishes, installs, or writes the catalogue.
+# workflow_dispatch is allowed; the job guard keeps the job to needle3-engine.
+name: needle3-engine unsigned APK
+
+on:
+  push:
+    branches: [needle3-engine]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: needle3-engine-unsigned-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unsigned-apk:
+    if: github.ref == 'refs/heads/needle3-engine'
+    runs-on: [self-hosted, build01]
+    timeout-minutes: 90
+    env:
+      JAVA_HOME: /usr/lib/jvm/java-21-openjdk-amd64
+      ANDROID_HOME: /opt/android-sdk
+      ANDROID_SDK_ROOT: /opt/android-sdk
+      PLATFORM_VERSION: android-36
+      BUILD_TOOLS_VERSION: 36.0.0
+      NDK_VERSION: 23.1.7779620
+      CMAKE_VERSION: 3.22.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify Java 21
+        run: |
+          java_version=$("$JAVA_HOME/bin/java" -version 2>&1)
+          case "$java_version" in
+            *'version "21'*) ;;
+            *) echo "Java 21 required at $JAVA_HOME"; exit 1 ;;
+          esac
+          echo "$JAVA_HOME/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install pinned SDK components if absent
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -x "$SDKMANAGER" || { echo "cmdline-tools missing under $ANDROID_HOME"; exit 1; }
+          missing=""
+          [ -d "$ANDROID_HOME/platforms/$PLATFORM_VERSION" ] || missing="$missing platforms;$PLATFORM_VERSION"
+          [ -d "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION" ] || missing="$missing build-tools;$BUILD_TOOLS_VERSION"
+          [ -d "$ANDROID_HOME/ndk/$NDK_VERSION" ] || missing="$missing ndk;$NDK_VERSION"
+          [ -d "$ANDROID_HOME/cmake/$CMAKE_VERSION" ] || missing="$missing cmake;$CMAKE_VERSION"
+          if [ -n "$missing" ]; then
+            # yes is expected to die of SIGPIPE (141) once sdkmanager stops reading.
+            # Only that status is tolerated; sdkmanager's own exit is preserved.
+            set +e
+            yes | "$SDKMANAGER" --licenses > /dev/null
+            statuses=("${PIPESTATUS[@]}"); yes_status=${statuses[0]}
+            licenses_status=${statuses[1]}
+            set -e
+            if [ "$yes_status" -ne 0 ] && [ "$yes_status" -ne 141 ]; then
+              echo "yes exited $yes_status"; exit "$yes_status"
+            fi
+            if [ "$licenses_status" -ne 0 ]; then
+              echo "sdkmanager --licenses exited $licenses_status"; exit "$licenses_status"
+            fi
+            "$SDKMANAGER" $missing
+          fi
+
+      - name: Install web dependencies
+        run: npm ci
+
+      - name: Prepare Android UI
+        run: npm run android:prepare
+
+      - name: Android unit tests
+        working-directory: android
+        run: >
+          sh ./gradlew testDebugUnitTest --console=plain --no-daemon --max-workers=2
+          -Pkotlin.compiler.execution.strategy=in-process -PneedlebubUnsignedRelease=true
+
+      - name: Build unsigned release APK
+        working-directory: android
+        run: >
+          sh ./gradlew assembleRelease --console=plain --no-daemon --max-workers=2
+          -Pkotlin.compiler.execution.strategy=in-process -PneedlebubUnsignedRelease=true
+
+      - name: Verify release APK carries no signature
+        run: |
+          apk=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          apksigner="$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION/apksigner"
+          test -f "$apk" || { echo "missing $apk"; exit 1; }
+          test -x "$apksigner" || { echo "apksigner missing at $apksigner"; exit 1; }
+          set +e
+          verdict=$("$apksigner" verify --verbose "$apk" 2>&1)
+          status=$?
+          set -e
+          echo "$verdict"
+          if [ "$status" -eq 0 ]; then
+            echo "APK carries a signature; refusing to retain it as unsigned"; exit 1
+          fi
+          if [ "$status" -ne 1 ] || [ -z "$(printf '%s' "$verdict" | grep 'DOES NOT VERIFY' || true)" ]; then
+            echo "apksigner did not report an unsigned verdict (exit $status)"; exit 1
+          fi
+
+      - name: Retain test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: needle3-engine-test-results-${{ github.run_id }}
+          path: |
+            android/app/build/test-results
+            android/app/build/reports/tests
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Retain unsigned APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: needle3-engine-unsigned-apk-${{ github.run_id }}
+          path: android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 14

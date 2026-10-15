@@ -6,7 +6,7 @@ import org.json.JSONObject
 /**
  * Runs one request against the isolated engine and reports what actually happened.
  *
- * Independent requests are rewound, never reloaded: upstream Needle2 keeps turn history
+ * Independent requests are rewound, never reloaded: upstream Needle 3 keeps turn history
  * until the conversation is reset, and a retained conversation can run away on the next
  * independent query. [RuntimeEngine.rewind] keeps the mapped model, the tools and
  * [loadedPack] intact, so the only cost is the rewind itself.

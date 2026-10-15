@@ -3,12 +3,15 @@ apply plugin: 'org.jetbrains.kotlin.android'
 apply plugin: 'kotlin-parcelize'
 
 def emulatorRuntimeStub = providers.gradleProperty('needlebubEmulatorRuntimeStub').orNull == 'true'
+// Explicit opt-in for the unsigned CI preview APK (-PneedlebubUnsignedRelease=true).
+// Without it, release signing stays fail-closed: signing.properties is required.
+def unsignedRelease = providers.gradleProperty('needlebubUnsignedRelease').orNull == 'true'
 def releaseSigningPropertiesFile = new File(
     System.getenv('NEEDLEBUB_SIGNING_PROPERTIES') ?:
         new File(System.getenv('USERPROFILE') ?: System.getProperty('user.home'), '.config/needlebub/release/signing.properties').absolutePath
 )
 def releaseSigningProperties = new Properties()
-if (releaseSigningPropertiesFile.isFile()) {
+if (!unsignedRelease && releaseSigningPropertiesFile.isFile()) {
     releaseSigningPropertiesFile.withInputStream { releaseSigningProperties.load(it) }
 }
 // versionCode rises on every build (minutes since epoch) unless -PversionCode is given.
@@ -54,6 +57,7 @@ android {
     }
     sourceSets {
         main.assets.srcDir '../../catalogue'
+        test.resources.srcDir '../../packs/otp'
     }
     externalNativeBuild {
         cmake {
@@ -82,7 +86,7 @@ android {
 tasks.configureEach { task ->
     if (task.name.matches(/(?i).*(assemble|bundle|package).*Release.*/)) {
         task.doFirst {
-            if (!releaseSigningPropertiesFile.isFile()) {
+            if (!unsignedRelease && !releaseSigningPropertiesFile.isFile()) {
                 throw new GradleException(
                     "NeedleBub release signing is not configured. Expected ${releaseSigningPropertiesFile}."
                 )
