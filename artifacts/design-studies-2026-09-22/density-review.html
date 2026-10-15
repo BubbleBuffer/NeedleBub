@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>NeedleBub — Pocket console density study</title>
+  <style>
+    @font-face{font-family:StudyUI;src:url('assets/ui.woff2') format('woff2');font-weight:100 900;font-display:swap}
+    @font-face{font-family:StudyDisplay;src:url('assets/display.woff2') format('woff2');font-weight:100 900;font-display:swap}
+    *{box-sizing:border-box}body{margin:0;background:#eeebe4;color:#282a2f;font-family:StudyUI,sans-serif;line-height:1.5}button,a{font:inherit}button{cursor:pointer}button:focus-visible,a:focus-visible{outline:3px solid #296c9b;outline-offset:4px}::selection{background:#edbc91;color:#282a2f}
+    .page{max-width:1080px;margin:auto;padding:44px 40px 56px}header{display:flex;gap:36px;align-items:flex-start;justify-content:space-between;margin-bottom:28px}h1{font:650 clamp(30px,4vw,46px)/1.08 StudyDisplay,sans-serif;letter-spacing:-.03em;margin:0 0 12px;max-width:650px}header p{max-width:660px;margin:0;color:#5e5d58;font-size:17px}.draft{white-space:nowrap;padding:7px 12px;border:1px solid #878279;font-size:13px;border-radius:4px}.controls{display:flex;justify-content:space-between;gap:20px;align-items:center;border-block:1px solid #b5b0a5;padding:18px 0;margin-bottom:32px}.controls p{margin:0;font-size:14px;color:#5e5d58}.states{display:flex;gap:6px}.states button{min-height:44px;padding:9px 16px;border:1px solid #77756d;border-radius:5px;background:transparent;color:inherit;white-space:nowrap}.states button[aria-pressed=true]{background:#282a2f;color:#fffaf1;border-color:#282a2f}.studies{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:52px}.study{min-width:0}.study header{display:block;margin:0 auto 20px;max-width:390px}.study h2{font:650 28px/1.2 StudyDisplay,sans-serif;letter-spacing:-.02em;margin:0 0 8px}.study p{font-size:15px;line-height:1.5;margin:0;color:#5e5d58;max-width:36ch}.frame{width:100%;max-width:392px;height:782px;margin:auto;border:1px solid #8c877d;border-radius:5px;overflow:hidden;background:#f3efe7;box-shadow:0 8px 24px #282a2f12}iframe{display:block;border:0;width:100%;height:100%}.study footer{max-width:390px;margin:18px auto 0;display:flex;justify-content:space-between;align-items:center;gap:12px}.study footer a{color:#454640;font-size:14px;text-underline-offset:4px}.pick{min-height:44px;background:#fffaef;color:#282a2f;border:1px solid #77756d;border-radius:5px;padding:8px 14px;font-weight:650}.pick[aria-pressed=true]{background:#de945f;border-color:#282a2f}.discussion{margin-top:36px;padding-top:24px;border-top:1px solid #b5b0a5}.discussion h2{font:650 22px/1.2 StudyDisplay,sans-serif;margin:0 0 10px}.discussion p{margin:8px 0;color:#5e5d58;max-width:78ch}.selection{color:#282a2f!important;font-weight:700;min-height:24px}.note{font-size:13px}
+    details{margin-top:24px;border:1px solid #b5b0a5;border-radius:5px;padding:0 16px}summary{min-height:48px;align-content:center;cursor:pointer;font-weight:650}summary:focus-visible{outline:3px solid #296c9b;outline-offset:3px}.references{display:flex;gap:32px;align-items:center;padding:8px 0 20px;flex-wrap:wrap}.references figure{margin:0;display:flex;align-items:center;gap:12px}.references img{width:72px;height:72px;object-fit:contain}.references figcaption{font-size:14px;color:#5e5d58}.references figcaption strong{display:block;color:#282a2f}
+    @media(max-width:760px){.page{padding:28px 18px 36px}header{display:block}.draft{display:inline-block;margin-top:16px}.controls{display:block}.controls p{margin-top:12px}.studies{grid-template-columns:1fr;gap:44px}.study header,.study footer{max-width:390px}.frame{height:782px}}
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+  </style>
+</head>
+<body>
+<main class="page">
+  <header><div><h1>Less bulk.<br>Same little machine.</h1><p>Pocket console is the preferred direction. This round compares its original proportions with a tighter, lighter version.</p></div><span class="draft">Design discussion · draft</span></header>
+  <section class="controls" aria-label="Compare an app state">
+    <div class="states" aria-label="Example state"><button data-state="ready" aria-pressed="true">Ready</button><button data-state="attention" aria-pressed="false">Needs attention</button></div>
+    <p>Same task and example data in both studies.</p>
+  </section>
+  <div class="studies">
+    <section class="study"><header><h2>Original A</h2><p>The first pocket-console study, preserved so you can compare its proportions directly.</p></header><div class="frame"><iframe src="pocket-console/index.html" title="Pocket console interactive design study"></iframe></div><footer><button class="pick" data-choice="Original A" aria-pressed="false">Explore this direction</button><a href="pocket-console/index.html" target="_blank" rel="noopener">Open full size ↗</a></footer></section>
+    <section class="study"><header><h2>A · slimmer</h2><p>A more compact instrument, retaining the warm casing and expression while reducing visual bulk.</p></header><div class="frame"><iframe src="pocket-console-slim/index.html" title="Slim pocket console interactive design study"></iframe></div><footer><button class="pick" data-choice="Slimmer A" aria-pressed="false">Explore this direction</button><a href="pocket-console-slim/index.html" target="_blank" rel="noopener">Open full size ↗</a></footer></section>
+  </div>
+  <section class="discussion"><h2>How much room should the tool take?</h2><p>Compare the scale of the expression, the weight of the casing, and the spacing around each action. The smaller version should feel lighter without losing personality or comfortable touch targets.</p><p class="selection" role="status" aria-live="polite">A is preferred; this density refinement is still open.</p><p class="note">All activity and permission states are fictional examples. NeedleBub does not keep a code history. Controls only change these prototypes. Expression drawings are placeholders for a later Pawth asset study. Production UI and the shared design skill are unchanged by this exploration.</p><p class="note"><a href="ink-circuit/index.html" target="_blank" rel="noopener">Revisit the earlier Ink circuit study ↗</a></p><details><summary>Artwork we’re preserving</summary><div class="references"><figure><img src="assets/needlebub-mark.svg" alt="Existing NeedleBub cat and needle mark"><figcaption><strong>NeedleBub</strong>Your existing app mark</figcaption></figure><figure><img src="assets/lilbub-reference.svg" alt="Approved LilBub faceted calico head"><figcaption><strong>LilBub</strong>The visual family reference</figcaption></figure></div></details></section>
+</main>
+<script>
+  let currentState='ready';
+  function applyState(){document.querySelectorAll('iframe').forEach(frame=>frame.contentWindow.postMessage({type:'study-state',state:currentState},location.origin))}
+  document.querySelectorAll('iframe').forEach(frame=>frame.addEventListener('load',applyState));
+  document.querySelectorAll('[data-state]').forEach(button=>button.addEventListener('click',()=>{currentState=button.dataset.state;document.querySelectorAll('[data-state]').forEach(other=>other.setAttribute('aria-pressed',String(other===button)));applyState()}));
+  document.querySelectorAll('[data-choice]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-choice]').forEach(other=>other.setAttribute('aria-pressed',String(other===button)));document.querySelector('.selection').textContent=button.dataset.choice+' selected for discussion. Nothing has been applied to the app.'}));
+</script>
+</body>
+</html>

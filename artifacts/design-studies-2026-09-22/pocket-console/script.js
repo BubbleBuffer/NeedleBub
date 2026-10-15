@@ -1,0 +1,41 @@
+const $ = id => document.getElementById(id);
+let state = 'ready';
+let paused = false;
+function render() {
+  const attention = state === 'attention';
+  const expression = attention ? 'attention' : paused ? 'paused' : 'ready';
+  $('display').className = 'display ' + expression;
+  ['ready','attention','paused'].forEach(name => $('face-' + name).setAttribute('style', name === expression ? 'display:block' : 'display:none'));
+  $('mode').textContent = attention ? 'Access is off' : paused ? 'Tool is paused' : 'Tool is on';
+  $('status-title').textContent = attention ? 'A hand, please.' : paused ? 'Taking a little break.' : 'Ready when you are.';
+  $('status-description').textContent = attention ? 'Reconnect notification access to find new codes.' : paused ? 'Code processing is paused. Resume when you’re ready.' : 'Keeping an eye out for your next code.';
+  $('primary-label').textContent = attention ? 'Reconnect access' : 'View activity';
+  $('pause-label').textContent = paused ? 'Resume' : 'Pause';
+  $('pause').setAttribute('aria-pressed', String(paused));
+  $('pause').disabled = attention;
+  $('pause-symbol').setAttribute('d', paused ? 'M8 5l10 7-10 7V5Z' : 'M8 5v14M16 5v14');
+}
+function openSheet(title, body) {
+  $('sheet-title').textContent = title;
+  $('sheet-body').innerHTML = body;
+  $('sheet').showModal();
+}
+$('close-sheet').addEventListener('click', () => $('sheet').close());
+$('sheet').addEventListener('click', event => { if(event.target === $('sheet')) { const r = $('sheet').getBoundingClientRect(); if(event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) $('sheet').close(); } });
+$('sources').addEventListener('click', () => openSheet('Your sources', '<p>One-time codes looks at these selected notification sources.</p><div class="app-row">Messages <span>Selected</span></div><div class="app-row">Mail <span>Selected</span></div><p class="sheet-note">Two demo apps. This prototype does not read notifications or change source settings.</p>'));
+$('pause').addEventListener('click', () => { paused = !paused; render(); });
+$('primary').addEventListener('click', () => {
+  if(state === 'attention') {
+    openSheet('Reconnect access', '<p>In the app, you would allow NeedleBub to read selected notifications in Android settings.</p><p class="sheet-note">This is a prototype. No device settings will open.</p><button class="primary sheet-action" id="demo-reconnect">Preview reconnected state</button>');
+    $('demo-reconnect').addEventListener('click', () => {state = 'ready'; paused = false; render(); $('sheet').close();});
+  } else {
+    openSheet('Today’s activity', '<div class="activity-summary"><strong>3</strong><span>codes handled</span></div><p>Latest activity: 2 minutes ago.</p><div class="demo-message">Just a count and a time. No code, message content or source identity is saved here.</div><p class="sheet-note">Illustrative activity only. This prototype does not read notifications.</p>');
+  }
+});
+window.addEventListener('message', event => {
+  if(event.origin !== location.origin || event.source !== parent || !event.data || event.data.type !== 'study-state' || !['ready','attention'].includes(event.data.state)) return;
+  state = event.data.state; paused = false;
+  if($('sheet').open) $('sheet').close();
+  render();
+});
+render();

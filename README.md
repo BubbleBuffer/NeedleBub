@@ -1,7 +1,7 @@
 # NeedleBub
 
 NeedleBub is an Android capability host for small, locally fine-tuned Needle
-models. The private alpha extracts one-time authentication codes from explicitly
+models. The private beta extracts one-time authentication codes from explicitly
 selected notifications and exposes installed external packs to MacroDroid and
 other Android apps.
 
@@ -27,8 +27,9 @@ permissions and no network access of its own.
 - The process-global Needle C API is serialized. The last pack stays warm for
   five idle seconds, after which the broker unbinds the isolated process.
 
-See [NBPACK.md](docs/NBPACK.md), [GATEWAY.md](docs/GATEWAY.md), and
-[PRIVATE_ALPHA.md](docs/PRIVATE_ALPHA.md).
+See [NBPACK.md](docs/NBPACK.md), [GATEWAY.md](docs/GATEWAY.md),
+[MACRODROID.md](docs/MACRODROID.md), and
+[PRIVATE_BETA.md](docs/PRIVATE_BETA.md).
 
 ## Build
 
@@ -43,6 +44,19 @@ npm run pack:otp
 npm run android:build
 ```
 
+Release builds are signed with the long-lived private-beta identity configured
+at `%USERPROFILE%\.config\needlebub\release\signing.properties`. The keystore
+and properties file are deliberately outside Git and must be backed up together
+in a secure location. A release build fails closed when that configuration is
+missing.
+
+The launcher and app header derive from the saved Pawth document at
+`assets/needlebub-icon.svg`. `npm run icon:build` exports the adaptive icon,
+copies the unchanged SVG into the web assets, and produces a transparent,
+closely framed header mark; Android preparation runs this automatically. The
+launcher foreground omits the canvas background, which Android supplies
+separately, and adds padding for launcher masks.
+
 `test:android:emulator` requires a booted x86_64 Android emulator. It uses a
 property-gated, non-inferencing Needle stub while exercising the production
 Android Keystore, SQLite store, Capacitor controls, system notification
@@ -53,10 +67,11 @@ remain ARM64-only and always link the pinned Needle archive.
 verifies its SHA-256, and writes a release artifact under `artifacts/`. Override
 the source with `OTP_NEEDLE_MODEL_PATH` when needed.
 
-The current host compiles and links on Windows. The tuned model and automatic
-OTP path are exercised on an Android 16 Pixel 8 Pro over wireless ADB. The full
-held-out corpus, MacroDroid output-variable interoperability, model switching,
-and binder-death recovery remain broader private-alpha gates.
+The current host compiles and links on Windows. The tuned model, automatic OTP
+path, MacroDroid outputs, five-second cold reload, timeout recovery, and
+encrypted notification capture are exercised on an Android 16 Pixel 8 Pro over
+wireless ADB. Model evaluation results are recorded in
+[OTP_ALPHA2_EVALUATION.md](docs/OTP_ALPHA2_EVALUATION.md).
 
 ## Privacy boundary
 
@@ -78,8 +93,13 @@ the user can grant Android's shell UID a process-local JSONL stream for ten
 minutes:
 
 ```powershell
-adb exec-out content read --uri content://de.x0bubbuff.needlebub.developer/captures > needlebub-captures.jsonl
+python scripts/pull-captures.py --serial DEVICE_SERIAL --output C:/private/needlebub-captures.jsonl
 ```
+
+The desktop pull requires Python 3 and validates the manifest count, record
+schemas, and unique IDs before publishing the local file. Failed transfers
+remain explicitly marked `.partial`; the command never retries automatically.
+Choose a private local output directory and a new filename for each pull.
 
 The grant is revoked when the Lab closes and never writes plaintext to shared
 storage. Persistent diagnostics and ordinary Logcat output remain metadata-only.

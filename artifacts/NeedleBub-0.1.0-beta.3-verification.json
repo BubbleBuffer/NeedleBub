@@ -1,0 +1,42 @@
+{
+  "version": "0.1.0-beta.3",
+  "versionCode": 10,
+  "phone_installed": false,
+  "phone_smoke": "blocked: wireless phone is absent from adb devices and mdns discovery",
+  "same_payload_after_resigning": true,
+  "private_artifact_scan": "passed",
+  "debuggable": false,
+  "native_abi": "arm64-v8a",
+  "elf_load_alignment_bytes": 16384,
+  "apk_16kb_zip_alignment": "passed",
+  "alpha_update_signer_sha256": "b34f60226e291c1380026037c468a7890811eda7c01ca8ae7e9145f33a0b9ec0",
+  "permanent_beta_signer_sha256": "2af5e7cbdee3a10c1ee41e4517e7166e4a5692b27411c31a6fe75b24b218ab96",
+  "artifacts": [
+    {
+      "file": "NeedleBub-0.1.0-beta.3-arm64.apk",
+      "bytes": 17001731,
+      "sha256": "0f96b8439c32c8a7b32edca2f96278ded7b97081370463a1dbf43b9ac6796cdb"
+    },
+    {
+      "file": "NeedleBub-0.1.0-beta.3-alpha-update-arm64.apk",
+      "bytes": 17042482,
+      "sha256": "3f3e246a2858e40c5833e0ae86e2c5a9716a1dd5ec90ec6aacd1e1d9c45bccc5"
+    }
+  ],
+  "checks": {
+    "web_tests": 31,
+    "android_jvm_tests": 164,
+    "desktop_tests": 125,
+    "emulator_instrumentation": 32,
+    "emulator_final_result": "OK (32 tests)",
+    "ui_native_auto_copy_toggle": "passed true/false; left false",
+    "release_build": "passed",
+    "signatures": "verified"
+  },
+  "limitations": [
+    "Physical arm64 native smoke remains pending",
+    "16KB structure verified; execution on a16KB device not verified",
+    "Phone capture labels require human review; no raw notification data uploaded",
+    "Synthetic model comparison is not population accuracy clearance"
+  ]
+}

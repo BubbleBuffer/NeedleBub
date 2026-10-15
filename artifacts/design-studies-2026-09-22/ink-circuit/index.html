@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>NeedleBub — Ink circuit study</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="study.js" defer></script>
+</head>
+<body>
+  <main class="console" data-state="ready">
+    <header class="masthead">
+      <div class="brand"><img src="../assets/needlebub-mark.svg" alt="" width="44" height="44"><span>NeedleBub</span></div>
+      <span class="prototype">Prototype</span>
+    </header>
+
+    <h1>One-time<br><span>codes</span><span class="title-stop" aria-hidden="true">.</span></h1>
+
+    <section class="status-strip" aria-label="Tool status">
+      <div class="expression" aria-hidden="true">
+        <svg viewBox="0 0 100 76"><g id="expression-lines" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="square" stroke-linejoin="miter"><path d="M16 34 27 23 38 34M62 34 73 23 84 34M39 49 50 57 61 49"/></g></svg>
+      </div>
+      <div class="status-copy" aria-live="polite"><strong id="status-title">On. Ready.</strong><span id="status-note">Watching 2 sources</span></div>
+      <button class="pause" id="pause-button" type="button" aria-label="Pause one-time codes"><svg id="pause-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg><span id="pause-label">Pause</span></button>
+    </section>
+
+    <section class="result-area" aria-labelledby="result-heading">
+      <div class="result-paper">
+        <div class="paper-top"><h2 id="result-heading">Today’s activity</h2><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 13 5 5L20 7"/></svg></div>
+        <p class="activity"><span class="activity-count">3</span><span>codes handled<br>today</span></p>
+        <div class="paper-foot"><span>Latest activity</span><span class="activity-time">2 minutes ago</span></div>
+      </div>
+      <button class="primary" id="primary-button" type="button"><span id="primary-label">View activity</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16M13 5l7 7-7 7"/></svg></button>
+    </section>
+
+    <p class="context-note" id="context-note">Your codes pass through.<br>They don’t stay here.</p>
+
+    <button class="sources" id="sources-button" type="button" aria-haspopup="dialog"><span class="sources-title">Sources<span class="source-count">2</span></span><span class="sources-detail">Choose what NeedleBub sees<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></span></button>
+    <footer><span class="footer-line" aria-hidden="true"></span><span>On your phone. In your hands.</span></footer>
+  </main>
+
+  <dialog id="demo-sheet" aria-labelledby="sheet-heading">
+    <div class="sheet-head"><h2 id="sheet-heading">Today’s activity</h2><button id="close-sheet" type="button" aria-label="Close sheet"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div id="sheet-content"></div>
+  </dialog>
+</body>
+</html>

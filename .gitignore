@@ -8,13 +8,17 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+__pycache__/
 dist
 dist-ssr
 *.local
 work/
 artifacts/*.apk
 artifacts/*.nbpack
+artifacts/**/*.apk
+artifacts/**/*.idsig
 android/.gradle/
+.gradle-sandbox-home/
 android/.idea/
 android/local.properties
 android/build/

@@ -1,0 +1,16 @@
+{
+  "test": "RuntimeContentionInstrumentedTest",
+  "device": "emulator-5580 API31",
+  "capture_disabled": {
+    "first_deadline_ms": 305,
+    "second_deadline_ms": 252,
+    "recovery": "passed"
+  },
+  "capture_enabled": {
+    "first_deadline_ms": 252,
+    "second_deadline_ms": 253,
+    "recovery": "passed"
+  },
+  "deadline_budget_ms": 250,
+  "conditions": "Actual main looper deliberately stalled while holding DeveloperDataStore monitor; capture enabled writes encrypted synthetic runtime result after lock released; fake runtime never answers first two requests, answers recovery. Does not measure native inference."
+}

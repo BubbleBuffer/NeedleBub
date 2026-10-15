@@ -1,0 +1,41 @@
+{
+  "version": "0.1.0-beta.2",
+  "versionCode": 9,
+  "same_payload_after_resigning": true,
+  "private_artifact_scan": "passed",
+  "artifacts": [
+    {
+      "file": "NeedleBub-0.1.0-beta.2-arm64.apk",
+      "bytes": 16952051,
+      "sha256": "4b1de3c94d985d813bf5b051634a12caa1c0b888f1d4158013b7a3cd002c5536"
+    },
+    {
+      "file": "NeedleBub-0.1.0-beta.2-alpha-update-arm64.apk",
+      "bytes": 16993330,
+      "sha256": "a9d1d54dde27cdf10bc6472bfbd5a7e55d7d507e55f45b8152394f412c29f78b"
+    }
+  ],
+  "alpha_update_signer_sha256": "b34f60226e291c1380026037c468a7890811eda7c01ca8ae7e9145f33a0b9ec0",
+  "permanent_beta_signer_sha256": "2af5e7cbdee3a10c1ee41e4517e7166e4a5692b27411c31a6fe75b24b218ab96",
+  "phone_installed": true,
+  "checks": {
+    "web_tests": 29,
+    "android_unit_tests": 69,
+    "exporter_jvm_tests": 18,
+    "android_emulator_export_scenarios": 8,
+    "emulator_execution": "7 passed initially; corrected fixture-only shell invocation and remaining targeted test passed",
+    "desktop_pull_validator_tests": 6,
+    "release_build": "passed",
+    "app_instrumentation_build": "passed",
+    "phone_retry": "Passed: 4754 unique records match manifest, app PID unchanged through wireless export"
+  },
+  "phone_install_verified_at": "2026-09-21T19:23:30.6928352+02:00",
+  "phone_export": {
+    "records": 4754,
+    "lifecycles": 3461,
+    "observedRevisions": 56312,
+    "sha256": "253014a177991617dbf0e4981fe6dbff504c90f574a63201fd99ea7ed0f568a7",
+    "path": "C:\\Users\\Admin\\Documents\\Projects\\OTPNeedle\\private\\device-review-2026-09-21\\beta2\\notifications.jsonl",
+    "verified_at": "2026-09-21T17:27:14.067291+00:00"
+  }
+}

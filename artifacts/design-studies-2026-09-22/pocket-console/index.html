@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>NeedleBub — Pocket console prototype</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="pocket">
+  <header class="brand"><div class="brand-name"><img src="../assets/needlebub-mark.svg" alt="" width="36" height="36"><span>NeedleBub</span></div><span class="prototype">Prototype</span></header>
+  <h1>One-time<br>codes<span class="title-dot">.</span></h1>
+  <section class="console" aria-label="One-time code controls">
+    <div class="display" id="display">
+      <div class="display-top"><span class="switch-label"><span class="status-dot"></span><span id="mode">Tool is on</span></span><span class="source-count">2 sources</span></div>
+      <svg class="face" viewBox="0 0 240 100" fill="none" aria-hidden="true"><g id="face-ready"><path d="M38 43 57 24 76 43M164 43 183 24 202 43"/><path d="M100 55 120 72 140 55"/></g><g id="face-paused" hidden><path d="M38 39H76M164 39H202M109 69H131"/></g><g id="face-attention" hidden><path d="M43 25 72 44M168 44 197 25M108 70 120 58 132 70"/></g><path class="cheek" d="M39 64H60M180 64H201"/></svg>
+      <div class="status-copy" aria-live="polite"><h2 id="status-title">Ready when you are.</h2><p id="status-description">Keeping an eye out for your next code.</p></div>
+    </div>
+    <div class="control-deck">
+      <div class="recent"><div class="recent-caption"><span>Today’s activity</span><time>Latest: 2 min ago</time></div><div class="activity-summary"><strong>3</strong><span>codes handled</span></div><div class="source-name"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>No code content saved</div></div>
+      <button class="primary" id="primary"><span id="primary-label">View activity</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+      <div class="utility-controls"><button id="sources"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg><span>Sources <span class="count">2</span></span></button><button id="pause" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path id="pause-symbol" d="M8 5v14M16 5v14"/></svg><span id="pause-label">Pause</span></button></div>
+    </div>
+  </section>
+  <p class="footnote">A small tool. A little less searching.</p>
+</main>
+<dialog id="sheet" aria-labelledby="sheet-title"><div class="sheet-header"><h2 id="sheet-title"></h2><button id="close-sheet" aria-label="Close details"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><div id="sheet-body"></div></dialog>
+<script src="script.js"></script>
+</body>
+</html>
