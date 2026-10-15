@@ -1,50 +1,37 @@
 package de.x0bubbuff.needlebub.notifications
 
-import android.app.Activity
-import android.app.KeyguardManager
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Intent
+import android.app.NotificationManager
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.os.PersistableBundle
+import androidx.fragment.app.FragmentActivity
 
-class AuthenticatedCopyActivity : Activity() {
-    private var code: String? = null
-
+/**
+ * Manual "Copy code" action of the result notification.
+ *
+ * Ordinary Android keyguard only: the activity is never shown over the lockscreen (the
+ * manifest does not set `showWhenLocked`, so the platform requires an unlock first) and it
+ * refuses to copy while the device is still locked. No biometric prompt is raised for a
+ * manual copy; developer capture keeps its own authentication.
+ *
+ * The action is retryable: a locked device or a failing clipboard leaves the notification
+ * in place, and the delivery token is validated against persisted state so an action left
+ * over from an older result cannot copy after a newer one arrived.
+ */
+class AuthenticatedCopyActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        code = intent.getStringExtra(OtpResultNotification.EXTRA_CODE)?.takeIf { it.matches(Regex("^[A-Za-z0-9]{4,8}\$")) }
-        if (code == null) return finish()
-        val keyguard = getSystemService(KeyguardManager::class.java)
-        if (!keyguard.isDeviceSecure) {
-            android.widget.Toast.makeText(this, "Set a device screen lock before copying NeedleBub codes.", android.widget.Toast.LENGTH_LONG).show()
-            return finish()
-        }
-        val confirmation = keyguard.createConfirmDeviceCredentialIntent("Copy NeedleBub code", "Authenticate to place the code on your clipboard")
-        if (confirmation == null) finish() else startActivityForResult(confirmation, REQUEST_AUTH)
-    }
-
-    @Deprecated("Activity result is used for the system credential screen on Android 12+.")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_AUTH && resultCode == RESULT_OK) copyAndFinish() else finish()
-    }
-
-    private fun copyAndFinish() {
-        val value = code ?: return finish()
-        val clipboard = getSystemService(ClipboardManager::class.java)
-        val clip = ClipData.newPlainText("NeedleBub code", value)
-        clip.description.extras = PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
-        clipboard.setPrimaryClip(clip)
-        getSystemService(android.app.NotificationManager::class.java).cancel(OtpResultNotification.NOTIFICATION_ID)
-        Handler(Looper.getMainLooper()).postDelayed({
-            val current = clipboard.primaryClip?.getItemAt(0)?.coerceToText(this)?.toString()
-            if (current == value) clipboard.clearPrimaryClip()
-        }, 60_000L)
+        val value = intent.getStringExtra(OtpResultNotification.EXTRA_CODE)
+            ?.takeIf { CODE_PATTERN.matches(it) }
+        val token = intent.getStringExtra(OtpResultNotification.EXTRA_DELIVERY_TOKEN)
+        if (value == null || !OtpResultNotification.isCurrentDelivery(this, token)) return finish()
+        // Locked: leave the notification in place instead of copying anything.
+        if (!ClipboardHelper.isUnlocked(this)) return finish()
+        // A failing clipboard leaves the notification so the user can try again.
+        if (!ClipboardHelper.copySensitive(this, value)) return finish()
+        getSystemService(NotificationManager::class.java).cancel(OtpResultNotification.NOTIFICATION_ID)
         finish()
     }
 
-    private companion object { const val REQUEST_AUTH = 42 }
+    private companion object {
+        val CODE_PATTERN = Regex("^[A-Za-z0-9]{4,8}$")
+    }
 }

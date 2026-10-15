@@ -9,6 +9,7 @@ import de.x0bubbuff.needlebub.NeedleBubApplication
 import de.x0bubbuff.needlebub.gateway.ErrorCodes
 import de.x0bubbuff.needlebub.gateway.OutputMapper
 import de.x0bubbuff.needlebub.gateway.RateDecision
+import de.x0bubbuff.needlebub.runtime.RuntimeAdmission
 import java.util.UUID
 
 class LocaleActionReceiver : BroadcastReceiver() {
@@ -31,11 +32,11 @@ class LocaleActionReceiver : BroadcastReceiver() {
             return
         }
         val requestId = "macro-${UUID.randomUUID()}"
-        if (!app.runtime.infer(requestId, pack, input, MACRO_TIMEOUT_MS, surface = "macro") { response ->
+        if (app.runtime.infer(requestId, pack, input, MACRO_TIMEOUT_MS, surface = "macro") { response ->
             app.macroLimiter.finish(MACRO_RATE_KEY)
             val matched = response.status == "OK" && response.resultJson != null
             finish(pending, OutputMapper.map(pack.manifest, matched, response.toolName, response.resultJson, response.errorCode))
-        }) {
+        } == RuntimeAdmission.QUEUE_FULL) {
             app.macroLimiter.finish(MACRO_RATE_KEY)
             finish(pending, mapOf("nb_matched" to "false", "nb_error_code" to ErrorCodes.BUSY))
         }
